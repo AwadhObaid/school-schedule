@@ -869,7 +869,104 @@ document.getElementById('saveSettingsBtn').addEventListener('click', () => {
   lastStateKey = null;
   updateSchedule();
   modalOverlay.classList.remove('open');
+  scheduleNativeNotifications();
 });
+
+/* ============================================================
+   8. Native offline background notifications (Android app only)
+   Uses Capacitor's LocalNotifications, which are scheduled at the
+   operating-system level (AlarmManager). They fire even if the app
+   is fully closed and the phone has no internet connection, because
+   everything here is computed from the phone's own clock — no server
+   involved. This block does nothing when running as a plain website
+   (isNativePlatform() is false there), so it's safe either way.
+   ============================================================ */
+const NOTIF_DAYS_AHEAD = 14;
+const NOTIF_ID_BASE = 900000; // room for offset*1000 + period index, well under Java's int max
+
+function isNative() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+function getLocalNotifications() {
+  return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+}
+
+async function scheduleNativeNotifications() {
+  if (!isNative()) return;
+  const LocalNotifications = getLocalNotifications();
+  if (!LocalNotifications) return;
+
+  try {
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== 'granted') {
+      const req = await LocalNotifications.requestPermissions();
+      if (req.display !== 'granted') return; // user declined, nothing more we can do
+    }
+
+    // Clear everything we previously scheduled before laying out the new plan
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length) {
+      await LocalNotifications.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+    }
+
+    const notifications = [];
+    const today = new Date();
+
+    for (let offset = 0; offset < NOTIF_DAYS_AHEAD; offset++) {
+      const day = new Date(today);
+      day.setDate(day.getDate() + offset);
+      const dayIndex = day.getDay();
+      const schedId = getActiveScheduleId(dayIndex);
+      if (schedId === 'off' || !state.schedules[schedId]) continue;
+      const periods = state.schedules[schedId].periods;
+      if (!periods.length) continue;
+
+      periods.forEach((p, i) => {
+        const [h, m] = p.start.split(':').map(Number);
+        const at = new Date(day);
+        at.setHours(h, m, 0, 0);
+        if (at.getTime() <= Date.now()) return; // don't schedule times already past
+        notifications.push({
+          id: NOTIF_ID_BASE + offset * 1000 + i,
+          title: `بدأت الآن: ${p.name}`,
+          body: `ينتهي وقت ${p.name} الساعة ${formatClock(timeToMinutes(p.start) + Number(p.duration))}`,
+          schedule: { at }
+        });
+      });
+
+      // End-of-day notification
+      const last = periods[periods.length - 1];
+      const [lh, lm] = last.start.split(':').map(Number);
+      const endAt = new Date(day);
+      const endMinutes = lh * 60 + lm + Number(last.duration);
+      endAt.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0);
+      if (endAt.getTime() > Date.now()) {
+        notifications.push({
+          id: NOTIF_ID_BASE + offset * 1000 + 999,
+          title: 'انتهى الدوام المدرسي',
+          body: 'انتهت جميع الفترات والحصص لهذا اليوم.',
+          schedule: { at: endAt }
+        });
+      }
+    }
+
+    if (notifications.length) {
+      await LocalNotifications.schedule({ notifications });
+    }
+  } catch (e) {
+    // Scheduling is best-effort; the in-app countdown still works regardless.
+    console.warn('scheduleNativeNotifications failed', e);
+  }
+}
+
+if (isNative()) {
+  scheduleNativeNotifications();
+  // Refresh the rolling 14-day window once per day when the app regains focus
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') scheduleNativeNotifications();
+  });
+}
 </script>
 </body>
 </html>
