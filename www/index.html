@@ -230,7 +230,7 @@ input:checked + .slider::before { transform: translateX(-20px); }
     <button id="settingsBtn" class="btn btn-ghost" type="button" title="الإعدادات" aria-label="الإعدادات">⚙️</button>
   </div>
   <div class="controls-grid">
-    <a href="./app.apk" download class="btn btn-secondary" style="text-decoration:none;">📲 تحميل تطبيق أندرويد (APK)</a>
+    <a href="./app.apk" download id="apkDownloadLink" class="btn btn-secondary" style="text-decoration:none;">📲 تحميل تطبيق أندرويد (APK)</a>
   </div>
   <div class="notice">لضمان وصول التنبيهات باستمرار، أبقِ التطبيق مفتوحاً في الخلفية ولا تُغلقه من قائمة التطبيقات الأخيرة.</div>
 
@@ -328,6 +328,18 @@ input:checked + .slider::before { transform: translateX(-20px); }
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
+
+// Force a fresh download every time (avoids the browser serving a stale
+// cached copy of app.apk from a previous build).
+document.getElementById('apkDownloadLink').addEventListener('click', function (e) {
+  e.preventDefault();
+  const a = document.createElement('a');
+  a.href = './app.apk?v=' + Date.now();
+  a.download = 'app.apk';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
 
 /* ============================================================
    2. Data model & persistence
