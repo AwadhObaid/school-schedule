@@ -229,6 +229,9 @@ input:checked + .slider::before { transform: translateX(-20px); }
     <button id="printBtn" class="btn btn-secondary" type="button">🖨️ طباعة الجدول</button>
     <button id="settingsBtn" class="btn btn-ghost" type="button" title="الإعدادات" aria-label="الإعدادات">⚙️</button>
   </div>
+  <div class="controls-grid">
+    <a href="./app.apk" download class="btn btn-secondary" style="text-decoration:none;">📲 تحميل تطبيق أندرويد (APK)</a>
+  </div>
   <div class="notice">لضمان وصول التنبيهات باستمرار، أبقِ التطبيق مفتوحاً في الخلفية ولا تُغلقه من قائمة التطبيقات الأخيرة.</div>
 
   <div class="card">
@@ -901,7 +904,29 @@ async function scheduleNativeNotifications() {
     const perm = await LocalNotifications.checkPermissions();
     if (perm.display !== 'granted') {
       const req = await LocalNotifications.requestPermissions();
-      if (req.display !== 'granted') return; // user declined, nothing more we can do
+      if (req.display !== 'granted') {
+        console.warn('Notification permission not granted:', req.display);
+        return; // user declined, nothing more we can do
+      }
+    }
+
+    // One-time welcome notification, fires ~5 seconds after the very first
+    // successful permission grant, so the user gets immediate confirmation
+    // that notifications actually work — without waiting for a real period.
+    if (!localStorage.getItem('welcomeNotifSent')) {
+      try {
+        await LocalNotifications.schedule({
+          notifications: [{
+            id: 1,
+            title: '✅ تم تفعيل الإشعارات',
+            body: 'التطبيق جاهز! بتوصلك تنبيهات بداية ونهاية كل فترة تلقائياً.',
+            schedule: { at: new Date(Date.now() + 5000) }
+          }]
+        });
+        localStorage.setItem('welcomeNotifSent', '1');
+      } catch (weErr) {
+        console.warn('Welcome notification failed', weErr);
+      }
     }
 
     // Clear everything we previously scheduled before laying out the new plan
