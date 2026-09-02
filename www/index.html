@@ -78,14 +78,20 @@ body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); }
   box-shadow: 0 3px 8px rgba(0,0,0,0.1); flex: 1 1 140px;
 }
 .btn:active { transform: scale(0.97); }
-.btn-sound-off { background: var(--danger); }
-.btn-sound-on { background: var(--success); }
+.btn:focus-visible, .icon-btn:focus-visible, .tab-btn:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid rgba(46,117,182,0.32); outline-offset: 2px;
+}
+.btn-sound-off { background: var(--text-muted); }
+.btn-sound-on { background: var(--brass); }
+.btn-notification-off { background: var(--danger); }
+.btn-notification-on { background: var(--success); }
 .btn-secondary { background: var(--primary-light); }
 .btn-ghost { background: #fff; color: var(--primary); border: 1.5px solid #dbe3ee; flex: 0 0 48px; }
 .notice {
   font-size: 12.5px; color: var(--text-muted); text-align: center; margin: -6px 0 16px;
   line-height: 1.6;
 }
+.native-app .web-only { display: none !important; }
 
 /* ===== Dial card ===== */
 .card {
@@ -200,6 +206,11 @@ input:checked + .slider::before { transform: translateX(-20px); }
 .danger-link { color: var(--danger); font-size: 12.5px; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; }
 .schedule-name-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .schedule-name-row input { flex: 1; }
+.backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.backup-actions .btn { padding: 10px 8px; font-size: 13px; }
+.field-help { font-size: 12px; color: var(--text-muted); line-height: 1.55; margin-top: 7px; }
+.field-help.success { color: var(--success); font-weight: 700; }
+.field-help.error { color: var(--danger); font-weight: 700; white-space: pre-line; }
 
 @media print {
   .controls-grid, .card, .pwa-badge, .clock, .notice, .modal-overlay, .school-pill { display: none !important; }
@@ -225,14 +236,15 @@ input:checked + .slider::before { transform: translateX(-20px); }
   </div>
 
   <div class="controls-grid">
-    <button id="soundButton" class="btn btn-sound-off" type="button">🔔 تفعيل التنبيه والصوت</button>
+    <button id="notificationButton" class="btn btn-notification-off" type="button">🔕 التنبيهات غير مفعلة</button>
+    <button id="soundButton" class="btn btn-sound-off" type="button">🔇 صوت الجرس غير مفعل</button>
     <button id="printBtn" class="btn btn-secondary" type="button">🖨️ طباعة الجدول</button>
     <button id="settingsBtn" class="btn btn-ghost" type="button" title="الإعدادات" aria-label="الإعدادات">⚙️</button>
   </div>
-  <div class="controls-grid">
+  <div class="controls-grid web-only">
     <a href="./app.apk" download id="apkDownloadLink" class="btn btn-secondary" style="text-decoration:none;">📲 تحميل تطبيق أندرويد (APK)</a>
   </div>
-  <div class="notice">لضمان وصول التنبيهات باستمرار، أبقِ التطبيق مفتوحاً في الخلفية ولا تُغلقه من قائمة التطبيقات الأخيرة.</div>
+  <div class="notice" id="usageNotice" aria-live="polite"></div>
 
   <div class="card">
     <div class="dial-wrap">
@@ -243,7 +255,7 @@ input:checked + .slider::before { transform: translateX(-20px); }
       </svg>
       <div class="dial-center">
         <span class="bell-icon" id="bellIcon">🔔</span>
-        <div id="state" class="state">جاري الحساب...</div>
+        <div id="state" class="state" aria-live="polite">جاري الحساب...</div>
         <div id="current" class="current"></div>
         <div id="range" class="range"></div>
       </div>
@@ -253,28 +265,28 @@ input:checked + .slider::before { transform: translateX(-20px); }
   </div>
 
   <div class="section-title" id="tableTitle">جدول الحصص والفترات اليومية</div>
-  <table>
+  <table aria-label="جدول الحصص والفترات اليومية">
     <thead>
-      <tr><th>م</th><th>الفترة</th><th>تبدأ</th><th>تنتهي</th></tr>
+      <tr><th scope="col">م</th><th scope="col">الفترة</th><th scope="col">تبدأ</th><th scope="col">تنتهي</th></tr>
     </thead>
     <tbody id="scheduleBody"></tbody>
   </table>
 
-  <div class="pwa-badge" id="pwaStatus">💡 يمكن تثبيت هذا التطبيق على الشاشة الرئيسية لجهازك.</div>
+  <div class="pwa-badge web-only" id="pwaStatus">💡 يمكن تثبيت هذا التطبيق على الشاشة الرئيسية لجهازك.</div>
 </div>
 
 <!-- ===== Settings Modal ===== -->
-<div class="modal-overlay" id="modalOverlay">
-  <div class="modal">
+<div class="modal-overlay" id="modalOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
     <div class="modal-close-row">
-      <h2>إعدادات الجدول</h2>
-      <button class="icon-btn" id="closeModalBtn" type="button">✕</button>
+      <h2 id="settingsTitle">إعدادات الجدول</h2>
+      <button class="icon-btn" id="closeModalBtn" type="button" aria-label="إغلاق الإعدادات">✕</button>
     </div>
 
     <div id="pinGate">
       <p class="sub">أدخل رمز الدخول لتعديل الجدول (الافتراضي: 0000)</p>
       <div class="field-row">
-        <input type="password" id="pinInput" inputmode="numeric" placeholder="رمز الدخول">
+        <input type="password" id="pinInput" inputmode="numeric" autocomplete="current-password" maxlength="12" placeholder="رمز الدخول">
       </div>
       <button class="btn btn-secondary" id="pinSubmit" type="button" style="width:100%">دخول</button>
     </div>
@@ -307,24 +319,54 @@ input:checked + .slider::before { transform: translateX(-20px); }
 
       <div class="field-row">
         <label>تغيير رمز الدخول</label>
-        <input type="password" id="newPinInput" inputmode="numeric" placeholder="رمز جديد مكوّن من أرقام">
+        <input type="password" id="newPinInput" inputmode="numeric" autocomplete="new-password" maxlength="12" placeholder="رمز جديد مكوّن من أرقام">
+      </div>
+
+      <div class="field-row">
+        <label>النسخ الاحتياطي والاستعادة</label>
+        <div class="backup-actions">
+          <button class="btn btn-secondary" id="exportBackupBtn" type="button">⬇️ تصدير نسخة</button>
+          <button class="btn btn-secondary" id="importBackupBtn" type="button">⬆️ استعادة نسخة</button>
+        </div>
+        <input type="file" id="importBackupInput" accept="application/json,.json" hidden>
+        <div class="field-help">احفظ نسخة من الجداول قبل حذف التطبيق أو نقله إلى جهاز آخر.</div>
+        <div class="field-help" id="backupStatus" aria-live="polite"></div>
       </div>
 
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="testBellBtn" type="button">🔔 اختبار الجرس</button>
+        <button class="btn btn-secondary" id="testBellBtn" type="button">🔔 اختبار الصوت والتنبيه</button>
         <button class="btn" style="background:var(--text-muted)" id="resetDefaultsBtn" type="button">استعادة الإعدادات الافتراضية</button>
       </div>
       <div class="modal-actions">
         <button class="btn btn-sound-on" id="saveSettingsBtn" type="button">💾 حفظ الإعدادات</button>
       </div>
+      <div class="field-help" id="settingsStatus" aria-live="assertive"></div>
     </div>
   </div>
 </div>
 
+<script src="./app-utils.js"></script>
 <script>
 /* ============================================================
    1. PWA registration (real files now, no Blob)
    ============================================================ */
+const APP_VERSION = '1.3.0';
+const {
+  escapeHtml,
+  timeToMinutes,
+  formatTime24,
+  validateScheduleState,
+  createBackupPayload,
+  parseBackupText
+} = window.ScheduleAppUtils;
+
+function isNative() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+const NATIVE_PLATFORM = isNative();
+document.documentElement.classList.add(NATIVE_PLATFORM ? 'native-app' : 'web-app');
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
@@ -350,9 +392,11 @@ const DAY_ORDER_FOR_UI = [0,1,2,3,4,5,6]; // Sun..Sat
 
 function defaultState() {
   return {
+    schemaVersion: 3,
     ramadanMode: false,
     pin: '0000',
     soundEnabled: false,
+    notificationsEnabled: false,
     weekdayMap: { 0:'normal', 1:'normal', 2:'normal', 3:'normal', 4:'normal', 5:'off', 6:'off' },
     schedules: {
       normal: {
@@ -391,10 +435,15 @@ function loadState() {
     const parsed = JSON.parse(raw);
     // merge with defaults so older saved states keep working after updates
     const def = defaultState();
-    return Object.assign(def, parsed, {
+    const merged = Object.assign(def, parsed, {
       weekdayMap: Object.assign(def.weekdayMap, parsed.weekdayMap || {}),
       schedules: Object.assign({}, def.schedules, parsed.schedules || {})
     });
+    if (typeof parsed.notificationsEnabled !== 'boolean') {
+      merged.notificationsEnabled = Boolean(parsed.soundEnabled);
+    }
+    merged.schemaVersion = 3;
+    return merged;
   } catch (e) { return defaultState(); }
 }
 
@@ -420,9 +469,9 @@ function getTodaySchedule() {
    3. Time helpers
    ============================================================ */
 const pad = n => n < 10 ? '0' + n : String(n);
-const timeToMinutes = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
 const formatClock = totalMinutes => {
+  totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
   let h = Math.floor(totalMinutes / 60);
   const m = Math.floor(totalMinutes % 60);
   const ap = h < 12 ? 'ص' : 'م';
@@ -465,7 +514,7 @@ function renderTable() {
     const e = s + Number(p.duration);
     return `<tr id="row${i}">
       <td>${i + 1}</td>
-      <td>${p.name}</td>
+      <td>${escapeHtml(p.name)}</td>
       <td>${formatClock(s)}</td>
       <td>${formatClock(e)}</td>
     </tr>`;
@@ -517,6 +566,7 @@ function playSchoolBell() {
 }
 
 function sendNotification(title, message) {
+  if (!state.notificationsEnabled || NATIVE_PLATFORM) return;
   if ('Notification' in window && Notification.permission === 'granted') {
     // showing via the service worker registration keeps it alive slightly
     // longer than new Notification() alone when the tab is backgrounded.
@@ -539,18 +589,128 @@ async function requestWakeLock() {
 }
 
 const soundButton = document.getElementById('soundButton');
+const notificationButton = document.getElementById('notificationButton');
+const usageNotice = document.getElementById('usageNotice');
+let notificationPrecisionWarning = false;
+
 function applySoundButtonUI() {
   if (soundEnabled) {
     soundButton.classList.remove('btn-sound-off');
     soundButton.classList.add('btn-sound-on');
-    soundButton.innerHTML = '🔔 التنبيه والإشعارات مفعّلة';
+    soundButton.textContent = '🔔 صوت الجرس مفعل';
   } else {
     soundButton.classList.remove('btn-sound-on');
     soundButton.classList.add('btn-sound-off');
-    soundButton.innerHTML = '🔕 التنبيه غير مفعل';
+    soundButton.textContent = '🔇 صوت الجرس غير مفعل';
   }
 }
+
+function applyNotificationButtonUI() {
+  if (state.notificationsEnabled) {
+    notificationButton.classList.remove('btn-notification-off');
+    notificationButton.classList.add('btn-notification-on');
+    notificationButton.textContent = '🔔 التنبيهات مفعلة';
+  } else {
+    notificationButton.classList.remove('btn-notification-on');
+    notificationButton.classList.add('btn-notification-off');
+    notificationButton.textContent = '🔕 التنبيهات غير مفعلة';
+  }
+  updateUsageNotice();
+}
+
+function updateUsageNotice() {
+  if (NATIVE_PLATFORM) {
+    if (!state.notificationsEnabled) {
+      usageNotice.textContent = 'فعّل التنبيهات لتصلك بدايات الحصص والفترات حتى عند إغلاق التطبيق.';
+    } else if (notificationPrecisionWarning) {
+      usageNotice.textContent = 'التنبيهات مفعلة، لكن قد تتأخر قليلًا حتى تسمح بالمنبهات الدقيقة من إعدادات أندرويد.';
+    } else {
+      usageNotice.textContent = 'التنبيهات الأسبوعية مفعلة وتعمل حتى عند إغلاق التطبيق أو عدم توفر الإنترنت.';
+    }
+  } else {
+    usageNotice.textContent = state.notificationsEnabled
+      ? 'إشعارات الموقع مفعلة، ويجب إبقاء الصفحة مفتوحة أو في الخلفية لوصولها.'
+      : 'يمكنك تفعيل إشعارات الموقع، لكنها تحتاج إلى بقاء الصفحة مفتوحة أو في الخلفية.';
+  }
+}
+
+async function enableNotifications() {
+  if (NATIVE_PLATFORM) {
+    const LocalNotifications = getLocalNotifications();
+    if (!LocalNotifications) {
+      alert('تعذر تشغيل خدمة التنبيهات على هذا الجهاز.');
+      return false;
+    }
+    try {
+      let permission = await LocalNotifications.checkPermissions();
+      if (permission.display !== 'granted') permission = await LocalNotifications.requestPermissions();
+      if (permission.display !== 'granted') {
+        alert('لم يتم منح التطبيق إذن إرسال التنبيهات. يمكنك تفعيله لاحقًا من إعدادات الهاتف.');
+        return false;
+      }
+
+      state.notificationsEnabled = true;
+      saveState();
+      applyNotificationButtonUI();
+
+      if (LocalNotifications.checkExactNotificationSetting) {
+        const exactStatus = await LocalNotifications.checkExactNotificationSetting();
+        notificationPrecisionWarning = exactStatus.exact_alarm !== 'granted';
+        if (notificationPrecisionWarning && LocalNotifications.changeExactNotificationSetting) {
+          const openSettings = confirm('لضمان وصول جرس الحصة في موعده تمامًا، اسمح للتطبيق باستخدام المنبهات الدقيقة من شاشة أندرويد التالية. فتح الإعدادات الآن؟');
+          if (openSettings) {
+            localStorage.setItem('refreshNotificationsAfterExactSettings', '1');
+            await LocalNotifications.changeExactNotificationSetting();
+          }
+        }
+      }
+
+      const scheduled = await scheduleNativeNotifications();
+      if (!scheduled) throw new Error('Native notification schedule was not created');
+      if (!localStorage.getItem('nativeNotificationsConfirmed')) {
+        await showNativeTestNotification();
+        localStorage.setItem('nativeNotificationsConfirmed', '1');
+      }
+      applyNotificationButtonUI();
+      return true;
+    } catch (error) {
+      console.warn('Unable to enable native notifications', error);
+      state.notificationsEnabled = false;
+      saveState();
+      applyNotificationButtonUI();
+      alert('تعذر تفعيل التنبيهات. تحقق من أذونات التطبيق ثم حاول مرة أخرى.');
+      return false;
+    }
+  }
+
+  if (!('Notification' in window)) {
+    alert('هذا المتصفح لا يدعم إشعارات الموقع.');
+    return false;
+  }
+  const permission = Notification.permission === 'default'
+    ? await Notification.requestPermission()
+    : Notification.permission;
+  if (permission !== 'granted') {
+    alert('إشعارات الموقع محظورة. اسمح بها من إعدادات المتصفح ثم حاول مرة أخرى.');
+    return false;
+  }
+  state.notificationsEnabled = true;
+  saveState();
+  applyNotificationButtonUI();
+  sendNotification('✅ تم تفعيل التنبيهات', 'ستصلك تنبيهات الفترات ما دامت صفحة الموقع مفتوحة.');
+  return true;
+}
+
+async function disableNotifications() {
+  if (NATIVE_PLATFORM) await cancelNativeNotifications();
+  state.notificationsEnabled = false;
+  notificationPrecisionWarning = false;
+  saveState();
+  applyNotificationButtonUI();
+}
+
 applySoundButtonUI();
+applyNotificationButtonUI();
 
 soundButton.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
@@ -564,14 +724,21 @@ soundButton.addEventListener('click', () => {
       applySoundButtonUI();
       return;
     }
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
     requestWakeLock();
     applySoundButtonUI();
     playSchoolBell();
   } else {
     applySoundButtonUI();
+  }
+});
+
+notificationButton.addEventListener('click', async () => {
+  notificationButton.disabled = true;
+  try {
+    if (state.notificationsEnabled) await disableNotifications();
+    else await enableNotifications();
+  } finally {
+    notificationButton.disabled = false;
   }
 });
 
@@ -582,6 +749,10 @@ document.getElementById('printBtn').addEventListener('click', () => window.print
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     if (soundEnabled) requestWakeLock();
+    if (NATIVE_PLATFORM && state.notificationsEnabled && localStorage.getItem('refreshNotificationsAfterExactSettings')) {
+      localStorage.removeItem('refreshNotificationsAfterExactSettings');
+      scheduleNativeNotifications();
+    }
     updateSchedule();
   }
 });
@@ -654,7 +825,7 @@ function updateSchedule() {
     current.textContent = 'بداية اليوم الدراسي';
     range.textContent = `تبدأ أول فترة الساعة ${formatClock(firstStart / 60)}`;
     detailsRow.innerHTML = `<div class="detail-block"><div class="label">متبقي على البداية</div><div class="big">${formatDuration(firstStart - secondsNow)}</div></div>`;
-    nextUp.innerHTML = `القادم: <b>${periods[0].name}</b>`;
+    nextUp.innerHTML = `القادم: <b>${escapeHtml(periods[0].name)}</b>`;
     setDial(0, 'var(--ring-track)');
   } else if (currentIndex >= 0) {
     currentStateKey = `period_${currentIndex}`;
@@ -675,7 +846,7 @@ function updateSchedule() {
     setDial(elapsed / (end - start), 'var(--brass)');
 
     const next = periods[currentIndex + 1];
-    nextUp.innerHTML = next ? `القادم: <b>${next.name}</b> الساعة ${formatClock(timeToMinutes(next.start))}` : 'هذه آخر فترة اليوم';
+    nextUp.innerHTML = next ? `القادم: <b>${escapeHtml(next.name)}</b> الساعة ${formatClock(timeToMinutes(next.start))}` : 'هذه آخر فترة اليوم';
 
     notifyTitle = `بدأت الآن: ${p.name}`;
     notifyMessage = `ينتهي وقت ${p.name} الساعة ${formatClock(end / 60)}`;
@@ -692,8 +863,8 @@ function updateSchedule() {
         state_.textContent = 'فترة انتقال';
         current.textContent = `انتهت ${periods[k].name}`;
         range.textContent = '';
-        detailsRow.innerHTML = `<div class="detail-block"><div class="transition-msg">${formatDuration(nextStart - secondsNow)}</div><div class="label">حتى ${periods[k + 1].name}</div></div>`;
-        nextUp.innerHTML = `القادم: <b>${periods[k + 1].name}</b> الساعة ${formatClock(nextStart / 60)}`;
+        detailsRow.innerHTML = `<div class="detail-block"><div class="transition-msg">${formatDuration(nextStart - secondsNow)}</div><div class="label">حتى ${escapeHtml(periods[k + 1].name)}</div></div>`;
+        nextUp.innerHTML = `القادم: <b>${escapeHtml(periods[k + 1].name)}</b> الساعة ${formatClock(nextStart / 60)}`;
         setDial(0, 'var(--warning)');
 
         notifyTitle = `انتهت ${periods[k].name}`;
@@ -736,19 +907,43 @@ setInterval(updateSchedule, 1000);
 const modalOverlay = document.getElementById('modalOverlay');
 const pinGate = document.getElementById('pinGate');
 const settingsBody = document.getElementById('settingsBody');
+const backupStatus = document.getElementById('backupStatus');
+const settingsStatus = document.getElementById('settingsStatus');
 let draftState = null;
 let activeTabId = null;
+let lastFocusedElement = null;
+
+function setFieldStatus(element, message, type) {
+  element.textContent = message || '';
+  element.classList.remove('success', 'error');
+  if (type) element.classList.add(type);
+}
+
+function closeSettingsModal() {
+  modalOverlay.classList.remove('open');
+  modalOverlay.setAttribute('aria-hidden', 'true');
+  if (lastFocusedElement) lastFocusedElement.focus();
+}
 
 document.getElementById('settingsBtn').addEventListener('click', () => {
+  lastFocusedElement = document.activeElement;
   modalOverlay.classList.add('open');
+  modalOverlay.setAttribute('aria-hidden', 'false');
   pinGate.style.display = 'block';
   settingsBody.style.display = 'none';
   document.getElementById('pinInput').value = '';
+  document.getElementById('newPinInput').value = '';
+  setFieldStatus(backupStatus, '');
+  setFieldStatus(settingsStatus, '');
+  setTimeout(() => document.getElementById('pinInput').focus(), 0);
 });
-document.getElementById('closeModalBtn').addEventListener('click', () => modalOverlay.classList.remove('open'));
-modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) modalOverlay.classList.remove('open'); });
+document.getElementById('closeModalBtn').addEventListener('click', closeSettingsModal);
+modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeSettingsModal(); });
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && modalOverlay.classList.contains('open')) closeSettingsModal();
+});
 
-document.getElementById('pinSubmit').addEventListener('click', () => {
+function unlockSettings() {
   const val = document.getElementById('pinInput').value;
   if (val === state.pin) {
     draftState = JSON.parse(JSON.stringify(state));
@@ -756,9 +951,14 @@ document.getElementById('pinSubmit').addEventListener('click', () => {
     pinGate.style.display = 'none';
     settingsBody.style.display = 'block';
     renderSettingsBody();
+    setTimeout(() => document.getElementById('ramadanToggle').focus(), 0);
   } else {
     alert('رمز الدخول غير صحيح');
   }
+}
+document.getElementById('pinSubmit').addEventListener('click', unlockSettings);
+document.getElementById('pinInput').addEventListener('keydown', event => {
+  if (event.key === 'Enter') unlockSettings();
 });
 
 function renderSettingsBody() {
@@ -768,9 +968,9 @@ function renderSettingsBody() {
   const wg = document.getElementById('weekdayGrid');
   wg.innerHTML = DAY_ORDER_FOR_UI.map(dayIdx => {
     const options = Object.keys(draftState.schedules).map(id =>
-      `<option value="${id}" ${draftState.weekdayMap[dayIdx] === id ? 'selected' : ''}>${draftState.schedules[id].name}</option>`
+      `<option value="${escapeHtml(id)}" ${draftState.weekdayMap[dayIdx] === id ? 'selected' : ''}>${escapeHtml(draftState.schedules[id].name)}</option>`
     ).join('');
-    return `<div class="day-name">${DAY_NAMES[dayIdx]}</div>
+    return `<div class="day-name">${escapeHtml(DAY_NAMES[dayIdx])}</div>
       <select data-day="${dayIdx}" class="weekday-select">
         <option value="off" ${draftState.weekdayMap[dayIdx] === 'off' ? 'selected' : ''}>إجازة</option>
         ${options}
@@ -788,10 +988,10 @@ function renderScheduleTabs() {
   const ids = Object.keys(draftState.schedules);
   if (!ids.includes(activeTabId)) activeTabId = ids[0];
   tabsEl.innerHTML = ids.map(id =>
-    `<button type="button" class="tab-btn ${id === activeTabId ? 'active' : ''}" data-id="${id}">${draftState.schedules[id].name}</button>`
+    `<button type="button" class="tab-btn ${id === activeTabId ? 'active' : ''}" data-id="${escapeHtml(id)}">${escapeHtml(draftState.schedules[id].name)}</button>`
   ).join('');
   tabsEl.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => { activeTabId = btn.dataset.id; renderScheduleTabs(); renderPeriodsEditor(); renderNameInput(); });
+    btn.addEventListener('click', () => { activeTabId = btn.dataset.id; renderScheduleTabs(); });
   });
   renderPeriodsEditor();
   renderNameInput();
@@ -799,6 +999,7 @@ function renderScheduleTabs() {
 
 function renderNameInput() {
   const nameInput = document.getElementById('scheduleNameInput');
+  nameInput.maxLength = 60;
   nameInput.value = draftState.schedules[activeTabId].name;
   nameInput.oninput = () => { draftState.schedules[activeTabId].name = nameInput.value; };
   const delBtn = document.getElementById('deleteScheduleBtn');
@@ -820,10 +1021,10 @@ function renderPeriodsEditor() {
   const periods = draftState.schedules[activeTabId].periods;
   editor.innerHTML = periods.map((p, i) => `
     <div class="period-row" data-i="${i}">
-      <input type="text" class="p-name" value="${p.name}" placeholder="اسم الفترة">
-      <input type="time" class="p-start" value="${p.start}">
-      <input type="number" min="1" class="p-duration" value="${p.duration}" placeholder="دقيقة">
-      <button type="button" class="remove-btn" title="حذف">✕</button>
+      <input type="text" class="p-name" value="${escapeHtml(p.name)}" maxlength="60" aria-label="اسم الفترة ${i + 1}" placeholder="اسم الفترة">
+      <input type="time" class="p-start" value="${escapeHtml(p.start)}" aria-label="وقت بداية الفترة ${i + 1}">
+      <input type="number" min="1" max="600" class="p-duration" value="${escapeHtml(p.duration)}" aria-label="مدة الفترة ${i + 1} بالدقائق" placeholder="دقيقة">
+      <button type="button" class="remove-btn" title="حذف" aria-label="حذف الفترة ${i + 1}">✕</button>
     </div>
   `).join('');
   editor.querySelectorAll('.period-row').forEach(row => {
@@ -839,12 +1040,16 @@ document.getElementById('addPeriodBtn').addEventListener('click', () => {
   const periods = draftState.schedules[activeTabId].periods;
   const last = periods[periods.length - 1];
   const nextStart = last ? formatStartAfter(last) : '08:00';
+  if (!nextStart) {
+    alert('لا يمكن إضافة فترة بعد نهاية اليوم. عدّل وقت أو مدة الفترة الأخيرة أولاً.');
+    return;
+  }
   periods.push({ name: 'فترة جديدة', start: nextStart, duration: 30 });
   renderPeriodsEditor();
 });
 function formatStartAfter(p) {
   const total = timeToMinutes(p.start) + Number(p.duration);
-  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+  return formatTime24(total);
 }
 
 document.getElementById('addScheduleBtn').addEventListener('click', () => {
@@ -856,10 +1061,16 @@ document.getElementById('addScheduleBtn').addEventListener('click', () => {
 
 document.getElementById('ramadanToggle').addEventListener('change', (e) => { draftState.ramadanMode = e.target.checked; });
 
-document.getElementById('testBellBtn').addEventListener('click', () => {
-  if (!soundEnabled) { alert('فعّل زر التنبيه والصوت في الأعلى أولاً حتى تسمع الاختبار.'); return; }
-  playSchoolBell();
-  sendNotification('🔔 اختبار الجرس', 'هذا إشعار تجريبي من إعدادات التوقيت المدرسي.');
+document.getElementById('testBellBtn').addEventListener('click', async () => {
+  if (!soundEnabled && !state.notificationsEnabled) {
+    alert('فعّل صوت الجرس أو التنبيهات من الصفحة الرئيسية أولاً.');
+    return;
+  }
+  if (soundEnabled) playSchoolBell();
+  if (state.notificationsEnabled) {
+    if (NATIVE_PLATFORM) await showNativeTestNotification();
+    else sendNotification('🔔 اختبار التنبيه', 'هذا إشعار تجريبي من تطبيق التوقيت المدرسي.');
+  }
 });
 
 document.getElementById('resetDefaultsBtn').addEventListener('click', () => {
@@ -869,22 +1080,113 @@ document.getElementById('resetDefaultsBtn').addEventListener('click', () => {
   draftState.pin = pinKeep;
   activeTabId = Object.keys(draftState.schedules)[0];
   renderSettingsBody();
+  setFieldStatus(settingsStatus, 'تم تجهيز الإعدادات الافتراضية. اضغط حفظ لتطبيقها.', 'success');
 });
 
-document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+function textToBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function exportBackup() {
+  const fileName = `school-schedule-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const contents = JSON.stringify(createBackupPayload(state, APP_VERSION), null, 2);
+  try {
+    if (NATIVE_PLATFORM) {
+      const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+      const Share = window.Capacitor?.Plugins?.Share;
+      if (Filesystem && Share) {
+        await Filesystem.writeFile({ path: fileName, data: textToBase64(contents), directory: 'CACHE' });
+        const result = await Filesystem.getUri({ path: fileName, directory: 'CACHE' });
+        await Share.share({ title: 'نسخة احتياطية للتوقيت المدرسي', files: [result.uri], dialogTitle: 'حفظ أو مشاركة النسخة الاحتياطية' });
+        setFieldStatus(backupStatus, 'تم تجهيز النسخة الاحتياطية. اختر مكان حفظها من نافذة المشاركة.', 'success');
+        return;
+      }
+    }
+
+    const file = new File([contents], fileName, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ title: 'نسخة احتياطية للتوقيت المدرسي', files: [file] });
+    } else {
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(file);
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    setFieldStatus(backupStatus, 'تم تصدير النسخة الاحتياطية بنجاح.', 'success');
+  } catch (error) {
+    if (error && error.name === 'AbortError') return;
+    console.warn('Backup export failed', error);
+    setFieldStatus(backupStatus, 'تعذر تصدير النسخة الاحتياطية. حاول مرة أخرى.', 'error');
+  }
+}
+
+document.getElementById('exportBackupBtn').addEventListener('click', exportBackup);
+document.getElementById('importBackupBtn').addEventListener('click', () => {
+  document.getElementById('importBackupInput').click();
+});
+document.getElementById('importBackupInput').addEventListener('change', async event => {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 1024 * 1024) throw new Error('Backup file is too large');
+    const result = parseBackupText(await file.text());
+    if (!result.valid) {
+      setFieldStatus(backupStatus, result.errors.slice(0, 6).join('\n'), 'error');
+      return;
+    }
+    if (!confirm('تم التحقق من النسخة الاحتياطية. هل تريد تحميلها داخل الإعدادات الحالية؟')) return;
+    draftState = result.state;
+    activeTabId = Object.keys(draftState.schedules)[0];
+    renderSettingsBody();
+    setFieldStatus(backupStatus, 'تم تحميل النسخة بنجاح. اضغط حفظ لتطبيقها على الجهاز.', 'success');
+  } catch (error) {
+    console.warn('Backup import failed', error);
+    setFieldStatus(backupStatus, 'تعذر قراءة الملف أو أن حجمه غير صالح.', 'error');
+  } finally {
+    input.value = '';
+  }
+});
+
+document.getElementById('saveSettingsBtn').addEventListener('click', async () => {
   const newPin = document.getElementById('newPinInput').value.trim();
   if (newPin) {
-    if (!/^\d{4,}$/.test(newPin)) { alert('رمز الدخول يجب أن يتكوّن من أرقام (٤ خانات على الأقل).'); return; }
+    if (!/^\d{4,12}$/.test(newPin)) {
+      setFieldStatus(settingsStatus, 'رمز الدخول يجب أن يتكوّن من 4 إلى 12 رقمًا.', 'error');
+      return;
+    }
     draftState.pin = newPin;
   }
-  state = draftState;
+  const validation = validateScheduleState(draftState);
+  if (!validation.valid) {
+    setFieldStatus(settingsStatus, validation.errors.slice(0, 8).join('\n'), 'error');
+    settingsStatus.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  state = validation.state;
+  soundEnabled = state.soundEnabled;
   saveState();
   document.getElementById('newPinInput').value = '';
   renderTable();
   lastStateKey = null;
   updateSchedule();
-  modalOverlay.classList.remove('open');
-  scheduleNativeNotifications();
+  applySoundButtonUI();
+  applyNotificationButtonUI();
+  if (NATIVE_PLATFORM) {
+    if (state.notificationsEnabled) await scheduleNativeNotifications();
+    else await cancelNativeNotifications();
+  }
+  closeSettingsModal();
 });
 
 /* ============================================================
@@ -893,67 +1195,85 @@ document.getElementById('saveSettingsBtn').addEventListener('click', () => {
    operating-system level (AlarmManager). They fire even if the app
    is fully closed and the phone has no internet connection, because
    everything here is computed from the phone's own clock — no server
-   involved. This block does nothing when running as a plain website
-   (isNativePlatform() is false there), so it's safe either way.
+   involved. Weekly rules repeat indefinitely and are rebuilt whenever
+   the saved timetable changes.
    ============================================================ */
-const NOTIF_DAYS_AHEAD = 14;
-const NOTIF_ID_BASE = 900000; // room for offset*1000 + period index, well under Java's int max
-
-function isNative() {
-  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-}
+const NOTIF_ID_BASE = 900000;
+const NOTIF_TEST_ID = 899999;
 
 function getLocalNotifications() {
   return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
 }
 
-async function scheduleNativeNotifications() {
-  if (!isNative()) return;
+async function cancelNativeNotifications() {
+  if (!NATIVE_PLATFORM) return;
   const LocalNotifications = getLocalNotifications();
   if (!LocalNotifications) return;
+  try {
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.length) {
+      await LocalNotifications.cancel({ notifications: pending.notifications.map(notification => ({ id: notification.id })) });
+    }
+  } catch (error) {
+    console.warn('cancelNativeNotifications failed', error);
+  }
+}
+
+async function showNativeTestNotification() {
+  if (!NATIVE_PLATFORM || !state.notificationsEnabled) return;
+  const LocalNotifications = getLocalNotifications();
+  if (!LocalNotifications) return;
+  try {
+    await LocalNotifications.schedule({
+      notifications: [{
+        id: NOTIF_TEST_ID,
+        title: '🔔 اختبار التنبيه',
+        body: 'التنبيهات تعمل بنجاح على هذا الجهاز.',
+        schedule: { at: new Date(Date.now() + 1200) },
+        isExactNotification: false,
+        autoCancel: true
+      }]
+    });
+  } catch (error) {
+    console.warn('Native test notification failed', error);
+    alert('تعذر إرسال التنبيه التجريبي. تحقق من أذونات التطبيق.');
+  }
+}
+
+async function scheduleNativeNotifications() {
+  if (!NATIVE_PLATFORM || !state.notificationsEnabled) return false;
+  const LocalNotifications = getLocalNotifications();
+  if (!LocalNotifications) return false;
 
   try {
     const perm = await LocalNotifications.checkPermissions();
     if (perm.display !== 'granted') {
-      const req = await LocalNotifications.requestPermissions();
-      if (req.display !== 'granted') {
-        console.warn('Notification permission not granted:', req.display);
-        return; // user declined, nothing more we can do
-      }
+      console.warn('Notification permission is no longer granted:', perm.display);
+      state.notificationsEnabled = false;
+      saveState();
+      applyNotificationButtonUI();
+      return false;
     }
 
-    // One-time welcome notification, fires ~5 seconds after the very first
-    // successful permission grant, so the user gets immediate confirmation
-    // that notifications actually work — without waiting for a real period.
-    if (!localStorage.getItem('welcomeNotifSent')) {
-      try {
-        await LocalNotifications.schedule({
-          notifications: [{
-            id: 1,
-            title: '✅ تم تفعيل الإشعارات',
-            body: 'التطبيق جاهز! بتوصلك تنبيهات بداية ونهاية كل فترة تلقائياً.',
-            schedule: { at: new Date(Date.now() + 5000) }
-          }]
-        });
-        localStorage.setItem('welcomeNotifSent', '1');
-      } catch (weErr) {
-        console.warn('Welcome notification failed', weErr);
-      }
+    const validation = validateScheduleState(state);
+    if (!validation.valid) {
+      console.warn('Notifications were not scheduled because the timetable is invalid:', validation.errors);
+      return false;
     }
+    state = validation.state;
+    saveState();
 
-    // Clear everything we previously scheduled before laying out the new plan
-    const pending = await LocalNotifications.getPending();
-    if (pending.notifications.length) {
-      await LocalNotifications.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+    let exactAllowed = true;
+    if (LocalNotifications.checkExactNotificationSetting) {
+      const exactStatus = await LocalNotifications.checkExactNotificationSetting();
+      exactAllowed = exactStatus.exact_alarm === 'granted';
     }
+    notificationPrecisionWarning = !exactAllowed;
+
+    await cancelNativeNotifications();
 
     const notifications = [];
-    const today = new Date();
-
-    for (let offset = 0; offset < NOTIF_DAYS_AHEAD; offset++) {
-      const day = new Date(today);
-      day.setDate(day.getDate() + offset);
-      const dayIndex = day.getDay();
+    for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
       const schedId = getActiveScheduleId(dayIndex);
       if (schedId === 'off' || !state.schedules[schedId]) continue;
       const periods = state.schedules[schedId].periods;
@@ -961,48 +1281,57 @@ async function scheduleNativeNotifications() {
 
       periods.forEach((p, i) => {
         const [h, m] = p.start.split(':').map(Number);
-        const at = new Date(day);
-        at.setHours(h, m, 0, 0);
-        if (at.getTime() <= Date.now()) return; // don't schedule times already past
+        const startMinutes = timeToMinutes(p.start);
+        const endMinutes = startMinutes + Number(p.duration);
+        const baseId = NOTIF_ID_BASE + dayIndex * 1000 + i * 2;
         notifications.push({
-          id: NOTIF_ID_BASE + offset * 1000 + i,
+          id: baseId,
           title: `بدأت الآن: ${p.name}`,
-          body: `ينتهي وقت ${p.name} الساعة ${formatClock(timeToMinutes(p.start) + Number(p.duration))}`,
-          schedule: { at }
+          body: `ينتهي وقت ${p.name} الساعة ${formatClock(endMinutes)}`,
+          schedule: { on: { weekday: dayIndex + 1, hour: h, minute: m, second: 0 }, allowWhileIdle: true },
+          isExactNotification: exactAllowed,
+          autoCancel: true
         });
-      });
 
-      // End-of-day notification
-      const last = periods[periods.length - 1];
-      const [lh, lm] = last.start.split(':').map(Number);
-      const endAt = new Date(day);
-      const endMinutes = lh * 60 + lm + Number(last.duration);
-      endAt.setHours(Math.floor(endMinutes / 60), endMinutes % 60, 0, 0);
-      if (endAt.getTime() > Date.now()) {
-        notifications.push({
-          id: NOTIF_ID_BASE + offset * 1000 + 999,
-          title: 'انتهى الدوام المدرسي',
-          body: 'انتهت جميع الفترات والحصص لهذا اليوم.',
-          schedule: { at: endAt }
-        });
-      }
+        const next = periods[i + 1];
+        const nextStart = next ? timeToMinutes(next.start) : null;
+        if (!next || nextStart !== endMinutes) {
+          const endsAtMidnight = endMinutes === 1440;
+          const endHour = endsAtMidnight ? 0 : Math.floor(endMinutes / 60);
+          const endMinute = endMinutes % 60;
+          const endWeekday = endsAtMidnight ? ((dayIndex + 1) % 7) + 1 : dayIndex + 1;
+          notifications.push({
+            id: baseId + 1,
+            title: next ? `انتهت ${p.name}` : 'انتهى الدوام المدرسي',
+            body: next
+              ? `الفترة القادمة (${next.name}) تبدأ الساعة ${formatClock(nextStart)}`
+              : 'انتهت جميع الفترات والحصص لهذا اليوم.',
+            schedule: { on: { weekday: endWeekday, hour: endHour, minute: endMinute, second: 0 }, allowWhileIdle: true },
+            isExactNotification: exactAllowed,
+            autoCancel: true
+          });
+        }
+      });
     }
 
     if (notifications.length) {
-      await LocalNotifications.schedule({ notifications });
+      const result = await LocalNotifications.schedule({ notifications });
+      if (result && result.warning) notificationPrecisionWarning = true;
     }
+    applyNotificationButtonUI();
+    return true;
   } catch (e) {
-    // Scheduling is best-effort; the in-app countdown still works regardless.
     console.warn('scheduleNativeNotifications failed', e);
+    return false;
   }
 }
 
-if (isNative()) {
+if (NATIVE_PLATFORM && state.notificationsEnabled) {
   scheduleNativeNotifications();
-  // Refresh the rolling 14-day window once per day when the app regains focus
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') scheduleNativeNotifications();
-  });
+} else if (!NATIVE_PLATFORM && state.notificationsEnabled && (!('Notification' in window) || Notification.permission !== 'granted')) {
+  state.notificationsEnabled = false;
+  saveState();
+  applyNotificationButtonUI();
 }
 </script>
 </body>

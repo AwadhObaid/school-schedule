@@ -1,7 +1,8 @@
-const CACHE_NAME = 'school-schedule-v2';
+const CACHE_NAME = 'school-schedule-v3';
 const ASSETS = [
   './',
   './index.html',
+  './app-utils.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -22,17 +23,39 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Offline-first for same-origin requests, network-first fallback for everything else
+function isApkRequest(url) {
+  return url.pathname.endsWith('/app.apk');
+}
+
+function cacheResponse(request, response) {
+  if (response && response.ok && response.type === 'basic') {
+    caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
+  }
+  return response;
+}
+
+// Keep navigations fresh, while retaining an offline fallback for the app shell.
+// APK files and range requests deliberately bypass the service worker so repeated
+// downloads never fill the browser cache with multi-megabyte application files.
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  if (url.origin === self.location.origin) {
+  if (url.origin !== self.location.origin || isApkRequest(url) || e.request.headers.has('range')) return;
+
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(response => cacheResponse(e.request, response))
+        .catch(() => caches.match(e.request).then(cached => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  const coreAssetUrls = new Set(ASSETS.map(asset => new URL(asset, self.registration.scope).pathname));
+  if (coreAssetUrls.has(url.pathname)) {
     e.respondWith(
       caches.match(e.request).then((cached) => {
-        const network = fetch(e.request).then((res) => {
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, res.clone()));
-          return res;
-        }).catch(() => cached);
+        const network = fetch(e.request).then(response => cacheResponse(e.request, response)).catch(() => cached);
         return cached || network;
       })
     );
