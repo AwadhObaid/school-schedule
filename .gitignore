@@ -5,3 +5,8 @@ android/.gradle/
 android/local.properties
 android/captures/
 .DS_Store
+
+# Prevent accidental nested copies of the project from being committed again.
+/android/android/
+/www/www/
+/.github/.github/
