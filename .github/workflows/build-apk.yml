@@ -23,6 +23,9 @@ jobs:
       - name: Install JS dependencies
         run: npm ci
 
+      - name: Run application tests
+        run: npm test
+
       # www/app.apk is the previously published Android build. It must not be
       # copied into the next APK as a Capacitor web asset.
       - name: Exclude previously published APK from native assets

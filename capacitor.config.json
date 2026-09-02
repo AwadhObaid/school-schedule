@@ -1,5 +1,11 @@
 {
   "appId": "com.salaheddine.schedule",
   "appName": "التوقيت المدرسي",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_schedule",
+      "iconColor": "#17365D"
+    }
+  }
 }
