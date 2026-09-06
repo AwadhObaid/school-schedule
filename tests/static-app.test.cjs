@@ -63,3 +63,15 @@ test('Android notifications use a dedicated monochrome status icon', () => {
   assert.equal(config.plugins.LocalNotifications.iconColor, '#17365D');
   assert.equal(fs.existsSync(path.join(root, 'android/app/src/main/res/drawable/ic_stat_schedule.xml')), true);
 });
+
+test('ringtone picker and volume controls are wired to Android notifications', () => {
+  const html = fs.readFileSync(path.join(root, 'www/index.html'), 'utf8');
+  assert.match(html, /id="chooseRingtoneBtn"/);
+  assert.match(html, /id="bellVolumeRange"/);
+  assert.match(html, /ScheduleAudio/);
+  assert.match(html, /NATIVE_CHANNEL_ID/);
+  const plugin = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/salaheddine/schedule/ScheduleAudioPlugin.java'), 'utf8');
+  assert.match(plugin, /ACTION_RINGTONE_PICKER/);
+  assert.match(plugin, /createNotificationChannel/);
+  assert.match(plugin, /setSound/);
+});

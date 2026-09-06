@@ -71,6 +71,19 @@ test('backup round-trip preserves a valid state', () => {
   assert.deepEqual(imported.state, state);
 });
 
+test('sound preferences are normalized and preserved in backups', () => {
+  const state = validState();
+  state.bellVolume = 140;
+  state.ringtoneName = '  نغمة الاختبار  ';
+  const normalized = validateScheduleState(state);
+  assert.equal(normalized.valid, true);
+  assert.equal(normalized.state.bellVolume, 100);
+  assert.equal(normalized.state.ringtoneName, 'نغمة الاختبار');
+  const imported = parseBackupText(JSON.stringify(createBackupPayload(normalized.state, '1.4.0')));
+  assert.equal(imported.state.bellVolume, 100);
+  assert.equal(imported.state.ringtoneName, 'نغمة الاختبار');
+});
+
 test('foreign and malformed backup files are rejected', () => {
   assert.equal(parseBackupText('{bad').valid, false);
   assert.equal(parseBackupText(JSON.stringify({ format: 'another-app', state: {} })).valid, false);

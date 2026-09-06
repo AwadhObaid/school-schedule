@@ -50,13 +50,20 @@
     }
 
     const cleanState = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       ramadanMode: Boolean(candidate.ramadanMode),
       pin,
       soundEnabled: Boolean(candidate.soundEnabled),
       notificationsEnabled: candidate.notificationsEnabled === undefined
         ? Boolean(candidate.soundEnabled)
         : Boolean(candidate.notificationsEnabled),
+      bellVolume: Number.isInteger(Number(candidate.bellVolume))
+        ? Math.min(100, Math.max(0, Number(candidate.bellVolume)))
+        : 80,
+      ringtoneUri: typeof candidate.ringtoneUri === 'string' ? candidate.ringtoneUri.slice(0, 1000) : '',
+      ringtoneName: typeof candidate.ringtoneName === 'string'
+        ? candidate.ringtoneName.trim().slice(0, 120)
+        : 'نغمة النظام',
       weekdayMap: {},
       schedules: {}
     };
