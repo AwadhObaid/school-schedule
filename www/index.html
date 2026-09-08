@@ -378,7 +378,7 @@ input:checked + .slider::before { transform: translateX(-20px); }
 /* ============================================================
    1. PWA registration (real files now, no Blob)
    ============================================================ */
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const {
   escapeHtml,
   timeToMinutes,
@@ -565,6 +565,31 @@ let soundEnabled = state.soundEnabled;
 let selectedAudio = null;
 let selectedAudioUrl = null;
 
+function storedBell(operation, file) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('school-schedule-audio', 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('sounds');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction('sounds', operation === 'get' ? 'readonly' : 'readwrite');
+      const store = tx.objectStore('sounds');
+      const action = operation === 'put' ? store.put(file, 'bell')
+        : operation === 'delete' ? store.delete('bell') : store.get('bell');
+      tx.oncomplete = () => { db.close(); resolve(action.result); };
+      tx.onabort = () => { db.close(); reject(tx.error); };
+    };
+  });
+}
+
+function useBellFile(file) {
+  if (selectedAudio) selectedAudio.pause();
+  if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl);
+  selectedAudioUrl = URL.createObjectURL(file);
+  selectedAudio = new Audio(selectedAudioUrl);
+  selectedAudio.preload = 'auto';
+}
+
 function getScheduleAudio() {
   return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ScheduleAudio;
 }
@@ -591,7 +616,7 @@ function playSchoolBell() {
   const volume = Math.min(1, Math.max(0, Number(state.bellVolume ?? 80) / 100));
 
   if (NATIVE_PLATFORM && state.ringtoneUri && getScheduleAudio()) {
-    getScheduleAudio().playPreview({ uri: state.ringtoneUri, volume }).catch(() => {});
+    getScheduleAudio().playPreview({ uri: state.ringtoneUri, volume: state.bellVolume }).catch(() => {});
     animateBellIcon();
     return;
   }
@@ -676,11 +701,12 @@ async function configureNativeRingtone() {
   const ScheduleAudio = getScheduleAudio();
   if (!NATIVE_PLATFORM || !ScheduleAudio) return;
   try {
-    await ScheduleAudio.configure({
+    const configured = await ScheduleAudio.configure({
       uri: state.ringtoneUri || '',
       name: state.ringtoneName || 'نغمة النظام',
       volume: Number(state.bellVolume ?? 80)
     });
+    if (configured?.channelId) nativeChannelId = configured.channelId;
   } catch (error) {
     console.warn('Unable to configure native ringtone', error);
     setFieldStatus(ringtoneStatus, 'تعذر تطبيق النغمة على تنبيهات أندرويد؛ ستبقى معاينة التطبيق متاحة.', 'error');
@@ -833,8 +859,10 @@ chooseRingtoneBtn.addEventListener('click', async () => {
       if (picked && picked.uri) {
         state.ringtoneUri = picked.uri;
         state.ringtoneName = picked.name || 'نغمة من الجهاز';
+        if (draftState) Object.assign(draftState, { ringtoneUri: state.ringtoneUri, ringtoneName: state.ringtoneName });
         saveState();
         await configureNativeRingtone();
+        if (state.notificationsEnabled) await scheduleNativeNotifications();
         applyRingtoneUI();
         setFieldStatus(ringtoneStatus, 'تم اختيار النغمة وتطبيقها على إشعارات أندرويد.', 'success');
       }
@@ -851,35 +879,40 @@ chooseRingtoneBtn.addEventListener('click', async () => {
   ringtoneFileInput.click();
 });
 
-ringtoneFileInput.addEventListener('change', () => {
+ringtoneFileInput.addEventListener('change', async () => {
   const file = ringtoneFileInput.files?.[0];
   if (!file) return;
-  if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl);
-  selectedAudioUrl = URL.createObjectURL(file);
-  selectedAudio = new Audio(selectedAudioUrl);
-  selectedAudio.preload = 'auto';
+  try { await storedBell('put', file); }
+  catch (error) { setFieldStatus(ringtoneStatus, 'تعذر حفظ ملف النغمة. لم يتغير الاختيار السابق.', 'error'); return; }
+  useBellFile(file);
   state.ringtoneUri = '';
   state.ringtoneName = file.name;
+  if (draftState) Object.assign(draftState, { ringtoneUri: '', ringtoneName: file.name });
   saveState();
   applyRingtoneUI();
   setFieldStatus(ringtoneStatus, 'تم اختيار ملف الصوت لهذا المتصفح. سيعاد اختياره بعد مسح بيانات الموقع.', 'success');
 });
 
 resetRingtoneBtn.addEventListener('click', async () => {
+  try { await storedBell('delete'); }
+  catch (error) { setFieldStatus(ringtoneStatus, 'تعذر حذف النغمة المحفوظة.', 'error'); return; }
   state.ringtoneUri = '';
   state.ringtoneName = 'نغمة النظام';
+  if (draftState) Object.assign(draftState, { ringtoneUri: '', ringtoneName: state.ringtoneName });
   if (selectedAudioUrl) URL.revokeObjectURL(selectedAudioUrl);
   selectedAudioUrl = null;
   selectedAudio = null;
   ringtoneFileInput.value = '';
   saveState();
   await configureNativeRingtone();
+  if (NATIVE_PLATFORM && state.notificationsEnabled) await scheduleNativeNotifications();
   applyRingtoneUI();
   setFieldStatus(ringtoneStatus, 'تمت استعادة نغمة النظام.', 'success');
 });
 
 bellVolumeRange.addEventListener('input', () => {
   state.bellVolume = Number(bellVolumeRange.value);
+  if (draftState) draftState.bellVolume = state.bellVolume;
   bellVolumeValue.textContent = `${state.bellVolume}%`;
   saveState();
 });
@@ -888,7 +921,17 @@ bellVolumeRange.addEventListener('change', async () => {
   await configureNativeRingtone();
 });
 
-loadNativeRingtoneSettings();
+const audioSettingsReady = loadNativeRingtoneSettings();
+if (!NATIVE_PLATFORM || !getScheduleAudio()) {
+  storedBell('get').then(file => {
+    if (file) {
+      useBellFile(file);
+      state.ringtoneName = file.name || state.ringtoneName;
+      saveState();
+      applyRingtoneUI();
+    }
+  }).catch(() => setFieldStatus(ringtoneStatus, 'تعذر استعادة ملف النغمة المحفوظ.', 'error'));
+}
 
 soundButton.addEventListener('click', () => {
   soundEnabled = !soundEnabled;
@@ -1379,6 +1422,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', async () =>
 const NOTIF_ID_BASE = 900000;
 const NOTIF_TEST_ID = 899999;
 const NATIVE_CHANNEL_ID = 'school_schedule';
+let nativeChannelId = NATIVE_CHANNEL_ID;
 
 function getLocalNotifications() {
   return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
@@ -1399,6 +1443,8 @@ async function cancelNativeNotifications() {
 }
 
 async function showNativeTestNotification() {
+  await audioSettingsReady;
+  await configureNativeRingtone();
   if (!NATIVE_PLATFORM || !state.notificationsEnabled) return;
   const LocalNotifications = getLocalNotifications();
   if (!LocalNotifications) return;
@@ -1408,7 +1454,7 @@ async function showNativeTestNotification() {
         id: NOTIF_TEST_ID,
         title: '🔔 اختبار التنبيه',
         body: 'التنبيهات تعمل بنجاح على هذا الجهاز.',
-        channelId: NATIVE_CHANNEL_ID,
+        channelId: nativeChannelId,
         schedule: { at: new Date(Date.now() + 1200) },
         isExactNotification: false,
         autoCancel: true
@@ -1421,6 +1467,7 @@ async function showNativeTestNotification() {
 }
 
 async function scheduleNativeNotifications() {
+  await audioSettingsReady;
   if (!NATIVE_PLATFORM || !state.notificationsEnabled) return false;
   const LocalNotifications = getLocalNotifications();
   if (!LocalNotifications) return false;
@@ -1469,7 +1516,7 @@ async function scheduleNativeNotifications() {
           id: baseId,
           title: `بدأت الآن: ${p.name}`,
           body: `ينتهي وقت ${p.name} الساعة ${formatClock(endMinutes)}`,
-          channelId: NATIVE_CHANNEL_ID,
+          channelId: nativeChannelId,
           schedule: { on: { weekday: dayIndex + 1, hour: h, minute: m, second: 0 }, allowWhileIdle: true },
           isExactNotification: exactAllowed,
           autoCancel: true
@@ -1488,7 +1535,7 @@ async function scheduleNativeNotifications() {
             body: next
               ? `الفترة القادمة (${next.name}) تبدأ الساعة ${formatClock(nextStart)}`
               : 'انتهت جميع الفترات والحصص لهذا اليوم.',
-            channelId: NATIVE_CHANNEL_ID,
+            channelId: nativeChannelId,
             schedule: { on: { weekday: endWeekday, hour: endHour, minute: endMinute, second: 0 }, allowWhileIdle: true },
             isExactNotification: exactAllowed,
             autoCancel: true

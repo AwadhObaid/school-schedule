@@ -14,6 +14,10 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import java.io.File;
+import java.io.InputStream;
+import java.io.FileOutputStream;
+import androidx.core.content.FileProvider;
 
 import androidx.activity.result.ActivityResult;
 
@@ -92,7 +96,24 @@ public class ScheduleAudioPlugin extends Plugin {
         Uri picked = result.getData().getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
         String uri = picked == null ? "" : picked.toString();
         String name = picked == null ? "نغمة النظام" : ringtoneTitle(picked);
-        preferences().edit().putString(URI_KEY, uri).putString(NAME_KEY, name).apply();
+        if (picked != null) {
+            try {
+                File directory = new File(getContext().getFilesDir(), "ringtones");
+                if (!directory.exists() && !directory.mkdirs()) throw new java.io.IOException("Cannot create ringtone directory");
+                File copy = File.createTempFile("bell-", ".audio", directory);
+                try (InputStream input = getContext().getContentResolver().openInputStream(picked);
+                     FileOutputStream output = new FileOutputStream(copy)) {
+                    if (input == null) throw new java.io.IOException("Cannot read ringtone");
+                    byte[] buffer = new byte[8192];
+                    int count;
+                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                }
+                uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", copy).toString();
+            } catch (Exception error) {
+                call.reject("Unable to save ringtone", error);
+                return;
+            }
+        }
         JSObject response = new JSObject();
         response.put("uri", uri);
         response.put("name", name);
@@ -108,12 +129,12 @@ public class ScheduleAudioPlugin extends Plugin {
         String previousUri = prefs.getString(URI_KEY, "");
         prefs.edit().putString(URI_KEY, uri).putString(NAME_KEY, name).putInt(VOLUME_KEY, volume).apply();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !uri.equals(previousUri)) {
+        String channelId = CHANNEL_ID + "_" + Integer.toHexString(uri.hashCode());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationManager manager = (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager != null) {
-                manager.deleteNotificationChannel(CHANNEL_ID);
                 NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
+                    channelId,
                     "جرس الحصص",
                     NotificationManager.IMPORTANCE_HIGH
                 );
@@ -129,7 +150,9 @@ public class ScheduleAudioPlugin extends Plugin {
                 manager.createNotificationChannel(channel);
             }
         }
-        call.resolve();
+        JSObject response = new JSObject();
+        response.put("channelId", channelId);
+        call.resolve(response);
     }
 
     @PluginMethod
