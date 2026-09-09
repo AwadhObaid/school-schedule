@@ -7,6 +7,10 @@ import android.content.Context;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.ActivityNotFoundException;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
+import android.webkit.MimeTypeMap;
 import android.media.AudioAttributes;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -78,42 +82,67 @@ public class ScheduleAudioPlugin extends Plugin {
 
     @PluginMethod
     public void pickRingtone(PluginCall call) {
-        Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
-        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION);
-        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "اختيار نغمة جرس الحصة");
-        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false);
-        String existing = preferences().getString(URI_KEY, "");
-        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing.isEmpty() ? defaultNotificationUri() : Uri.parse(existing));
-        startActivityForResult(call, intent, "handleRingtonePickerResult");
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("audio/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivityForResult(call, intent, "handleRingtonePickerResult");
+        } catch (ActivityNotFoundException error) {
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+            try {
+                startActivityForResult(call, intent, "handleRingtonePickerResult");
+            } catch (Exception fallbackError) {
+                call.reject("picker_unavailable", fallbackError);
+            }
+        } catch (Exception error) {
+            call.reject("picker_unavailable", error);
+        }
     }
 
     @ActivityCallback
     private void handleRingtonePickerResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
         if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
             call.reject("canceled");
             return;
         }
-        Uri picked = result.getData().getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+        Uri picked = result.getData().getData();
+        if (picked == null) { call.reject("file_unreadable"); return; }
         String uri = picked == null ? "" : picked.toString();
-        String name = picked == null ? "نغمة النظام" : ringtoneTitle(picked);
+        String name = "نغمة من الجهاز";
+        try (Cursor cursor = getContext().getContentResolver().query(picked, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0)) name = cursor.getString(0);
+        } catch (Exception ignored) { }
+        File copy = null;
         if (picked != null) {
             try {
                 File directory = new File(getContext().getFilesDir(), "ringtones");
                 if (!directory.exists() && !directory.mkdirs()) throw new java.io.IOException("Cannot create ringtone directory");
-                File copy = File.createTempFile("bell-", ".audio", directory);
+                String mime = getContext().getContentResolver().getType(picked);
+                String extension = mime == null ? null : MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
+                copy = File.createTempFile("bell-", extension == null ? ".audio" : "." + extension, directory);
                 try (InputStream input = getContext().getContentResolver().openInputStream(picked);
                      FileOutputStream output = new FileOutputStream(copy)) {
                     if (input == null) throw new java.io.IOException("Cannot read ringtone");
                     byte[] buffer = new byte[8192];
                     int count;
-                    while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                    long total = 0;
+                    while ((count = input.read(buffer)) != -1) {
+                        total += count;
+                        if (total > 20L * 1024 * 1024) throw new java.io.IOException("file_too_large");
+                        output.write(buffer, 0, count);
+                    }
+                    if (total == 0) throw new java.io.IOException("file_unreadable");
                 }
                 uri = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", copy).toString();
             } catch (Exception error) {
-                call.reject("Unable to save ringtone", error);
+                if (copy != null) copy.delete();
+                call.reject("file_too_large".equals(error.getMessage()) ? "file_too_large" : "file_save_failed", error);
                 return;
             }
         }
+        preferences().edit().putString(URI_KEY, uri).putString(NAME_KEY, name).apply();
         JSObject response = new JSObject();
         response.put("uri", uri);
         response.put("name", name);

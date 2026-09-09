@@ -71,7 +71,7 @@ test('ringtone picker and volume controls are wired to Android notifications', (
   assert.match(html, /ScheduleAudio/);
   assert.match(html, /NATIVE_CHANNEL_ID/);
   const plugin = fs.readFileSync(path.join(root, 'android/app/src/main/java/com/salaheddine/schedule/ScheduleAudioPlugin.java'), 'utf8');
-  assert.match(plugin, /ACTION_RINGTONE_PICKER/);
+  assert.match(plugin, /ACTION_OPEN_DOCUMENT/);
   assert.match(plugin, /createNotificationChannel/);
   assert.match(plugin, /setSound/);
 });

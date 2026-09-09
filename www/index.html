@@ -378,7 +378,7 @@ input:checked + .slider::before { transform: translateX(-20px); }
 /* ============================================================
    1. PWA registration (real files now, no Blob)
    ============================================================ */
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const {
   escapeHtml,
   timeToMinutes,
@@ -869,7 +869,13 @@ chooseRingtoneBtn.addEventListener('click', async () => {
     } catch (error) {
       if (error?.message !== 'canceled') {
         console.warn('Ringtone picker failed', error);
-        setFieldStatus(ringtoneStatus, 'تعذر فتح منتقي النغمات. حاول مرة أخرى.', 'error');
+        const messages = {
+          picker_unavailable: 'تعذر فتح تطبيق الملفات. تأكد من وجود تطبيق ملفات مفعّل على الهاتف.',
+          file_unreadable: 'تعذر قراءة ملف الصوت. اختر ملفًا محفوظًا على الهاتف.',
+          file_save_failed: 'تعذر نسخ النغمة داخل التطبيق. تحقق من مساحة التخزين واختر ملفًا محليًا.',
+          file_too_large: 'حجم النغمة أكبر من 20 ميجابايت. اختر ملفًا أصغر.'
+        };
+        setFieldStatus(ringtoneStatus, messages[error?.message] || 'تعذر إتمام اختيار النغمة. أعد المحاولة بملف صوتي محلي.', 'error');
       }
     } finally {
       chooseRingtoneBtn.disabled = false;
