@@ -33,28 +33,42 @@ class NotificationSchedulePlanner {
 
   List<PlannedTeacherNotification> build({
     required List<TeacherClass> assignments,
-    required List<SchoolPeriod> periods,
+    required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
   }) {
     if (!settings.enabled) return const <PlannedTeacherNotification>[];
 
-    final periodById = {for (final period in periods) period.id: period};
-    final active = assignments
-        .where((item) => item.enabled && periodById.containsKey(item.periodId))
-        .toList(growable: false)
-      ..sort((a, b) {
-        final day = _weekOrder(a.weekday).compareTo(_weekOrder(b.weekday));
-        if (day != 0) return day;
-        final aPeriod = periodById[a.periodId]!;
-        final bPeriod = periodById[b.periodId]!;
-        return aPeriod.startMinutes.compareTo(bPeriod.startMinutes);
-      });
+    final active = <({TeacherClass assignment, SchoolPeriod period})>[];
+
+    for (final assignment in assignments) {
+      if (!assignment.enabled) continue;
+      final periods = periodsByWeekday[assignment.weekday] ??
+          const <SchoolPeriod>[];
+      SchoolPeriod? period;
+      for (final candidate in periods) {
+        if (candidate.id == assignment.periodId) {
+          period = candidate;
+          break;
+        }
+      }
+      if (period != null) {
+        active.add((assignment: assignment, period: period));
+      }
+    }
+
+    active.sort((a, b) {
+      final day = _weekOrder(a.assignment.weekday)
+          .compareTo(_weekOrder(b.assignment.weekday));
+      if (day != 0) return day;
+      return a.period.startMinutes.compareTo(b.period.startMinutes);
+    });
 
     final result = <PlannedTeacherNotification>[];
 
     for (var index = 0; index < active.length; index += 1) {
-      final assignment = active[index];
-      final period = periodById[assignment.periodId]!;
+      final item = active[index];
+      final assignment = item.assignment;
+      final period = item.period;
       final next = active.isEmpty ? null : active[(index + 1) % active.length];
 
       if (settings.preAlertMinutes > 0) {
@@ -101,7 +115,7 @@ class NotificationSchedulePlanner {
       if (settings.endAlert) {
         final nextDescription = next == null
             ? null
-            : 'القادمة: ${next.subject}${_optionalClassroom(next.classroom)}';
+            : 'القادمة: ${next.assignment.subject}${_optionalClassroom(next.assignment.classroom)}';
         result.add(
           PlannedTeacherNotification(
             id: _id(assignment, TeacherNotificationKind.end),

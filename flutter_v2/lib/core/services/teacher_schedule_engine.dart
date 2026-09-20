@@ -1,4 +1,5 @@
 import '../models/school_period.dart';
+import '../models/school_schedule_settings.dart';
 import '../models/teacher_class.dart';
 
 class ScheduledTeacherClass {
@@ -29,11 +30,11 @@ class TeacherTimeline {
 
 class TeacherScheduleEngine {
   const TeacherScheduleEngine({
-    required this.periods,
+    required this.scheduleSettings,
     required this.assignments,
   });
 
-  final List<SchoolPeriod> periods;
+  final SchoolScheduleSettings scheduleSettings;
   final List<TeacherClass> assignments;
 
   TeacherTimeline evaluate(DateTime now) {
@@ -74,6 +75,7 @@ class TeacherScheduleEngine {
   }
 
   List<ScheduledTeacherClass> classesForDate(DateTime date) {
+    final periods = scheduleSettings.teachingPeriodsForWeekday(date.weekday);
     final periodById = {for (final period in periods) period.id: period};
     final result = <ScheduledTeacherClass>[];
 

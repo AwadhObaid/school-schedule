@@ -26,6 +26,7 @@ void main() {
     expect(find.text('حصصي'), findsOneWidget);
     expect(find.text('الجدول'), findsOneWidget);
     expect(find.text('الإعدادات'), findsOneWidget);
+    expect(find.text('الإعدادات'), findsOneWidget);
     expect(find.text('ابدأ بإضافة حصصك'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -80,7 +81,7 @@ class _FakeNotificationScheduler implements TeacherNotificationScheduler {
   @override
   Future<void> sync({
     required List<TeacherClass> assignments,
-    required List<SchoolPeriod> periods,
+    required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
   }) async {}
 

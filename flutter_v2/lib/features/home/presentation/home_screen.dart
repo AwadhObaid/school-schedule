@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
-import '../../../core/data/school_schedule_defaults.dart';
+import '../../../core/models/school_period.dart';
 import '../../../core/services/teacher_schedule_engine.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/arabic_format.dart';
@@ -88,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _TodayScheduleCard(
           timeline: timeline,
           currentPeriodId: timeline.current?.period.id,
+          periods: widget.controller.teachingPeriodsForDate(now),
           onOpenMyClasses: widget.onOpenMyClasses,
         ),
       ],
@@ -430,11 +431,13 @@ class _TodayScheduleCard extends StatelessWidget {
   const _TodayScheduleCard({
     required this.timeline,
     required this.currentPeriodId,
+    required this.periods,
     required this.onOpenMyClasses,
   });
 
   final TeacherTimeline timeline;
   final String? currentPeriodId;
+  final List<SchoolPeriod> periods;
   final VoidCallback onOpenMyClasses;
 
   @override
@@ -442,8 +445,6 @@ class _TodayScheduleCard extends StatelessWidget {
     final byPeriod = {
       for (final item in timeline.today) item.period.id: item,
     };
-    const periods = SchoolScheduleDefaults.normalTeachingPeriods;
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),

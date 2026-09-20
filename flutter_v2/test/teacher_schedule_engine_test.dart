@@ -23,12 +23,12 @@ void main() {
     ),
   ];
 
-  const engine = TeacherScheduleEngine(
-    periods: SchoolScheduleDefaults.normalTeachingPeriods,
-    assignments: assignments,
-  );
+  test('detects current teacher class using normal schedule', () {
+    const engine = TeacherScheduleEngine(
+      scheduleSettings: SchoolScheduleDefaults.settings,
+      assignments: assignments,
+    );
 
-  test('detects current teacher class and the following class', () {
     final timeline = engine.evaluate(DateTime(2026, 9, 20, 7, 50));
 
     expect(timeline.current?.assignment.subject, 'الرياضيات');
@@ -36,18 +36,47 @@ void main() {
     expect(timeline.next?.period.id, 'p2');
   });
 
-  test('detects free time between two teacher classes', () {
-    final timeline = engine.evaluate(DateTime(2026, 9, 20, 8, 22));
+  test('Ramadan mode changes teacher class times automatically', () {
+    final engine = TeacherScheduleEngine(
+      scheduleSettings:
+          SchoolScheduleDefaults.settings.copyWith(ramadanMode: true),
+      assignments: assignments,
+    );
 
-    expect(timeline.current, isNull);
-    expect(timeline.next?.period.id, 'p2');
+    final timeline = engine.evaluate(DateTime(2026, 9, 20, 8, 45));
+
+    expect(timeline.current?.period.id, 'p2');
+    expect(timeline.current?.start.hour, 8);
+    expect(timeline.current?.start.minute, 40);
   });
 
   test('finds next class on the following school day', () {
+    const engine = TeacherScheduleEngine(
+      scheduleSettings: SchoolScheduleDefaults.settings,
+      assignments: assignments,
+    );
+
     final timeline = engine.evaluate(DateTime(2026, 9, 20, 12, 30));
 
     expect(timeline.current, isNull);
     expect(timeline.next?.assignment.subject, 'العلوم');
     expect(timeline.next?.start.weekday, DateTime.monday);
+  });
+
+  test('school day marked off does not produce teacher classes', () {
+    const engine = TeacherScheduleEngine(
+      scheduleSettings: SchoolScheduleDefaults.settings,
+      assignments: <TeacherClass>[
+        TeacherClass(
+          weekday: DateTime.friday,
+          periodId: 'p1',
+          subject: 'الرياضيات',
+        ),
+      ],
+    );
+
+    final classes = engine.classesForDate(DateTime(2026, 9, 25, 8));
+
+    expect(classes, isEmpty);
   });
 }

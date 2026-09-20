@@ -35,7 +35,7 @@ class _AppShellState extends State<AppShell> {
         onOpenSettings: () => _select(3),
       ),
       MyClassesScreen(controller: widget.controller),
-      const ScheduleScreen(),
+      ScheduleScreen(controller: widget.controller),
       SettingsScreen(controller: widget.controller),
     ];
 

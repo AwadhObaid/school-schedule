@@ -26,7 +26,7 @@ abstract class TeacherNotificationScheduler {
 
   Future<void> sync({
     required List<TeacherClass> assignments,
-    required List<SchoolPeriod> periods,
+    required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
   });
 
@@ -144,7 +144,7 @@ class LocalTeacherNotificationScheduler
   @override
   Future<void> sync({
     required List<TeacherClass> assignments,
-    required List<SchoolPeriod> periods,
+    required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
   }) async {
     await initialize();
@@ -155,7 +155,7 @@ class LocalTeacherNotificationScheduler
 
       final planned = _planner.build(
         assignments: assignments,
-        periods: periods,
+        periodsByWeekday: periodsByWeekday,
         settings: settings,
       );
 
