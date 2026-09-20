@@ -198,14 +198,14 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
   Future<void> _addPeriod(String profileId) async {
     final value = await widget.controller.addSchoolPeriod(profileId);
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     if (value == null) {
       _message('تعذر إضافة فترة جديدة بعد نهاية اليوم.');
       return;
     }
 
-    await _editPeriod(this.context, profileId, value);
+    await _editPeriod(context, profileId, value);
   }
 
   Future<void> _editPeriod(
