@@ -109,7 +109,7 @@ class MyClassesScreen extends StatelessWidget {
 
     var enabled = existing?.enabled ?? true;
 
-    await showModalBottomSheet<void>(
+    final result = await showModalBottomSheet<_ClassEditorResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -179,15 +179,12 @@ class MyClassesScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 18),
                     FilledButton.icon(
-                      onPressed: () async {
+                      onPressed: () {
                         if (!enabled) {
-                          await controller.removeTeacherClass(
-                            weekday,
-                            period.id,
+                          Navigator.pop(
+                            sheetContext,
+                            const _ClassEditorResult.delete(),
                           );
-                          if (sheetContext.mounted) {
-                            Navigator.pop(sheetContext);
-                          }
                           return;
                         }
 
@@ -201,19 +198,19 @@ class MyClassesScreen extends StatelessWidget {
                           return;
                         }
 
-                        await controller.upsertTeacherClass(
-                          TeacherClass(
-                            weekday: weekday,
-                            periodId: period.id,
-                            subject: subject,
-                            classroom: _nullIfEmpty(classroomController.text),
-                            notes: _nullIfEmpty(notesController.text),
+                        Navigator.pop(
+                          sheetContext,
+                          _ClassEditorResult.save(
+                            TeacherClass(
+                              weekday: weekday,
+                              periodId: period.id,
+                              subject: subject,
+                              classroom:
+                                  _nullIfEmpty(classroomController.text),
+                              notes: _nullIfEmpty(notesController.text),
+                            ),
                           ),
                         );
-
-                        if (sheetContext.mounted) {
-                          Navigator.pop(sheetContext);
-                        }
                       },
                       icon: const Icon(Icons.save_rounded),
                       label: const Text('حفظ الحصة'),
@@ -221,14 +218,11 @@ class MyClassesScreen extends StatelessWidget {
                     if (existing != null) ...[
                       const SizedBox(height: 8),
                       TextButton.icon(
-                        onPressed: () async {
-                          await controller.removeTeacherClass(
-                            weekday,
-                            period.id,
+                        onPressed: () {
+                          Navigator.pop(
+                            sheetContext,
+                            const _ClassEditorResult.delete(),
                           );
-                          if (sheetContext.mounted) {
-                            Navigator.pop(sheetContext);
-                          }
                         },
                         icon: const Icon(Icons.delete_outline_rounded),
                         label: const Text('حذف هذه الحصة'),
@@ -246,6 +240,18 @@ class MyClassesScreen extends StatelessWidget {
     subjectController.dispose();
     classroomController.dispose();
     notesController.dispose();
+
+    if (result == null) return;
+
+    if (result.delete) {
+      await controller.removeTeacherClass(weekday, period.id);
+      return;
+    }
+
+    final value = result.value;
+    if (value != null) {
+      await controller.upsertTeacherClass(value);
+    }
   }
 
   static String? _nullIfEmpty(String value) {
@@ -409,4 +415,15 @@ class _WeeklyGrid extends StatelessWidget {
       ],
     );
   }
+}
+
+
+class _ClassEditorResult {
+  const _ClassEditorResult.save(this.value) : delete = false;
+  const _ClassEditorResult.delete()
+      : value = null,
+        delete = true;
+
+  final TeacherClass? value;
+  final bool delete;
 }
