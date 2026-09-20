@@ -8,10 +8,10 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  test('appearance defaults to system and persists dark mode', () async {
+  test('appearance defaults to light and persists dark mode', () async {
     final store = AppearanceStore();
 
-    expect(await store.load(), AppAppearance.system);
+    expect(await store.load(), AppAppearance.light);
 
     await store.save(AppAppearance.dark);
     expect(await store.load(), AppAppearance.dark);
