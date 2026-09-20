@@ -308,7 +308,7 @@ class _WeeklyGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final periods = SchoolScheduleDefaults.normalTeachingPeriods;
+    const periods = SchoolScheduleDefaults.normalTeachingPeriods;
 
     return Column(
       children: [
