@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../data/school_schedule_defaults.dart';
 import '../models/bell_settings.dart';
 import '../models/notification_settings.dart';
+import '../models/school_notification_settings.dart';
 import '../models/school_period.dart';
 import '../models/school_schedule_settings.dart';
 
@@ -10,6 +11,7 @@ class LegacyMigrationData {
   const LegacyMigrationData({
     required this.schoolSchedule,
     required this.notificationSettings,
+    required this.schoolNotificationSettings,
     required this.bellSettings,
     required this.pin,
     required this.sourceVersion,
@@ -20,6 +22,7 @@ class LegacyMigrationData {
 
   final SchoolScheduleSettings schoolSchedule;
   final NotificationSettings notificationSettings;
+  final SchoolNotificationSettings schoolNotificationSettings;
   final BellSettings bellSettings;
   final String pin;
   final String sourceVersion;
@@ -265,6 +268,7 @@ abstract final class LegacyBackupMigration {
     final hadCustomRingtone = ringtoneUri.isNotEmpty;
 
     final warnings = <String>[
+      'تنبيهات التطبيق القديم ستُنقل إلى تنبيهات الجدول المدرسي العامة، بينما تبقى «تنبيهات حصصي» منفصلة.',
       'حصصي الشخصية غير موجودة في التطبيق القديم، لذلك ستبقى حصص Flutter الحالية كما هي.',
       if (hadCustomRingtone)
         'النسخة القديمة تحفظ رابط النغمة فقط ولا تحفظ الملف الصوتي؛ ستُستخدم نغمة النظام حتى تعيد اختيار النغمة من الجهاز.',
@@ -279,15 +283,13 @@ abstract final class LegacyBackupMigration {
           weekdayMap: weekdayMap,
           profiles: profiles,
         ),
-        notificationSettings: NotificationSettings(
+        notificationSettings: const NotificationSettings(),
+        schoolNotificationSettings: SchoolNotificationSettings(
           enabled: state['notificationsEnabled'] is bool
               ? state['notificationsEnabled'] as bool
               : (state['soundEnabled'] is bool
                   ? state['soundEnabled'] as bool
                   : false),
-          preAlertMinutes: 0,
-          startAlert: true,
-          endAlert: true,
         ),
         bellSettings: BellSettings(
           enabled: state['soundEnabled'] is bool

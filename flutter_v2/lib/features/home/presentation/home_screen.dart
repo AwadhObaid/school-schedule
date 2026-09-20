@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
 import '../../../core/models/school_period.dart';
+import '../../../core/services/school_day_engine.dart';
 import '../../../core/services/teacher_schedule_engine.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/arabic_format.dart';
@@ -89,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final schoolStatus = widget.controller.schoolDayStatusAt(now);
     final timeline = widget.controller.timelineAt(now);
 
     return ListView(
@@ -99,6 +101,11 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenSettings: widget.onOpenSettings,
         ),
         const SizedBox(height: 18),
+        _SchoolDayCard(
+          status: schoolStatus,
+          now: now,
+        ),
+        const SizedBox(height: 14),
         if (widget.controller.activeClassCount == 0)
           _EmptyTeacherSchedule(onOpenMyClasses: widget.onOpenMyClasses)
         else if (timeline.current != null)
@@ -166,6 +173,175 @@ class _Header extends StatelessWidget {
           icon: const Icon(Icons.settings_outlined),
         ),
       ],
+    );
+  }
+}
+
+class _SchoolDayCard extends StatelessWidget {
+  const _SchoolDayCard({
+    required this.status,
+    required this.now,
+  });
+
+  final SchoolDayStatus status;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    String eyebrow;
+    String title;
+    String subtitle;
+    String? countdownLabel;
+    Duration? countdown;
+    double? progress;
+
+    switch (status.phase) {
+      case SchoolDayPhase.off:
+        eyebrow = 'الدوام المدرسي';
+        title = 'إجازة اليوم';
+        subtitle = 'لا يوجد جدول دوام مفعّل لهذا اليوم.';
+      case SchoolDayPhase.before:
+        final next = status.next!;
+        eyebrow = status.profileName ?? 'الدوام المدرسي';
+        title = 'قبل بدء الدوام';
+        subtitle =
+            'أول فترة: ${next.name} • ${ArabicFormat.clock(status.nextStart!)}';
+        countdown = status.nextStart!.difference(now);
+        countdownLabel = 'حتى بداية الدوام';
+      case SchoolDayPhase.active:
+        final current = status.current!;
+        eyebrow = status.profileName ?? 'الدوام المدرسي';
+        title = current.name;
+        subtitle =
+            '${ArabicFormat.clock(status.currentStart!)} – ${ArabicFormat.clock(status.currentEnd!)}';
+        countdown = status.currentEnd!.difference(now);
+        countdownLabel = 'متبقي على نهاية الفترة';
+
+        final total =
+            status.currentEnd!.difference(status.currentStart!).inSeconds;
+        final elapsed = now.difference(status.currentStart!).inSeconds;
+        progress = total <= 0
+            ? 0.0
+            : (elapsed / total).clamp(0.0, 1.0).toDouble();
+      case SchoolDayPhase.gap:
+        eyebrow = status.profileName ?? 'الدوام المدرسي';
+        title = 'بين الفترات';
+        subtitle = status.next == null
+            ? 'لا توجد فترة تالية.'
+            : 'القادمة: ${status.next!.name} • ${ArabicFormat.clock(status.nextStart!)}';
+        if (status.nextStart != null) {
+          countdown = status.nextStart!.difference(now);
+          countdownLabel = 'حتى الفترة القادمة';
+        }
+      case SchoolDayPhase.ended:
+        eyebrow = status.profileName ?? 'الدوام المدرسي';
+        title = 'انتهى الدوام المدرسي';
+        subtitle = status.previous == null
+            ? 'انتهت فترات اليوم.'
+            : 'آخر فترة: ${status.previous!.name}';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(
+                  status.phase == SchoolDayPhase.off
+                      ? Icons.event_busy_rounded
+                      : Icons.notifications_active_outlined,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      eyebrow,
+                      style: TextStyle(
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          if (countdown != null && countdownLabel != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.timer_outlined, color: scheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      countdownLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Text(
+                    ArabicFormat.countdown(countdown),
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (progress != null) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+            ),
+          ],
+          if (status.phase == SchoolDayPhase.active &&
+              status.next != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'القادمة: ${status.next!.name} • ${ArabicFormat.clock(status.nextStart!)}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:schedule/core/models/app_appearance.dart';
 import 'package:schedule/core/models/app_backup.dart';
 import 'package:schedule/core/models/bell_settings.dart';
 import 'package:schedule/core/models/notification_settings.dart';
+import 'package:schedule/core/models/school_notification_settings.dart';
 import 'package:schedule/core/models/teacher_class.dart';
 
 void main() {
@@ -28,6 +29,8 @@ void main() {
         enabled: true,
         preAlertMinutes: 5,
       ),
+      schoolNotificationSettings:
+          const SchoolNotificationSettings(enabled: true),
       bellSettings: const BellSettings(
         enabled: true,
         ringtoneUri: 'content://school/ringtone',
@@ -45,10 +48,35 @@ void main() {
     expect(parsed.backup?.pin, '2468');
     expect(parsed.backup?.teacherClasses, hasLength(1));
     expect(parsed.backup?.notificationSettings.enabled, isTrue);
+    expect(parsed.backup?.schoolNotificationSettings.enabled, isTrue);
     expect(parsed.backup?.bellSettings.volume, 65);
     expect(parsed.backup?.appearance, AppAppearance.dark);
     expect(parsed.backup?.includesCustomRingtone, isTrue);
     expect(parsed.backup?.schoolSchedule.ramadanMode, isTrue);
+  });
+
+  test('older backups without general notification settings remain valid', () {
+    final backup = AppBackup(
+      appVersion: '2.8.0+17',
+      exportedAt: DateTime.utc(2026, 9, 20, 18, 0),
+      pin: '0000',
+      schoolSchedule: SchoolScheduleDefaults.settings,
+      teacherClasses: const <TeacherClass>[],
+      notificationSettings: const NotificationSettings(),
+      bellSettings: const BellSettings(),
+    );
+
+    final map = backup.toJson();
+    final data = Map<String, dynamic>.from(map['data'] as Map);
+    data.remove('schoolNotificationSettings');
+    map['data'] = data;
+
+    final parsed = AppBackup.parse(
+      const JsonEncoder.withIndent('  ').convert(map),
+    );
+
+    expect(parsed.isValid, isTrue);
+    expect(parsed.backup?.schoolNotificationSettings.enabled, isFalse);
   });
 
   test('older Phase 06 backup without appearance defaults to light', () {
