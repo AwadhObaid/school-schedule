@@ -34,7 +34,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('دخول الإعدادات'), findsNothing);
-    expect(find.text('الحماية والنسخ الاحتياطي'), findsOneWidget);
+    expect(find.text('صوت الجرس المدرسي'), findsOneWidget);
   }
 
   testWidgets('Flutter V2 opens with Arabic teacher home shell', (tester) async {
@@ -64,7 +64,15 @@ void main() {
     await openSettings(tester);
 
     expect(find.text('صوت الجرس المدرسي'), findsOneWidget);
-    expect(find.text('تنبيهات حصصي'), findsOneWidget);
+
+    await tester.fling(
+      find.byType(ListView),
+      const Offset(0, -900),
+      1200,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('الحماية والنسخ الاحتياطي'), findsOneWidget);
     expect(find.text('تصدير نسخة'), findsOneWidget);
     expect(find.text('استعادة نسخة'), findsOneWidget);
 
