@@ -11,6 +11,17 @@ function Step([string]$Message) {
     Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function Get-ArabicAppLabel {
+    # Build the Arabic label from Unicode code points so this script remains
+    # ASCII-only and is safe in Windows PowerShell 5.1 as well as PowerShell 7.
+    $codePoints = @(
+        0x0627, 0x0644, 0x062A, 0x0648, 0x0642, 0x064A, 0x062A,
+        0x0020,
+        0x0627, 0x0644, 0x0645, 0x062F, 0x0631, 0x0633, 0x064A
+    )
+    return -join ($codePoints | ForEach-Object { [char]$_ })
+}
+
 Step 'Checking Flutter SDK'
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw 'Flutter was not found in PATH.'
@@ -33,11 +44,14 @@ try {
 
         $manifest = Join-Path $FlutterRoot 'android\app\src\main\AndroidManifest.xml'
         if (Test-Path $manifest) {
+            $appLabel = Get-ArabicAppLabel
+            $replacement = 'android:label="' + $appLabel + '"'
             $text = Get-Content $manifest -Raw -Encoding UTF8
-            $text = $text -replace 'android:label="schedule"', 'android:label="التوقيت المدرسي"'
+            $text = $text -replace 'android:label="schedule"', $replacement
             Set-Content $manifest $text -Encoding UTF8
         }
-    } else {
+    }
+    else {
         Step 'Android Flutter scaffold already exists; keeping it'
     }
 
@@ -45,6 +59,7 @@ try {
     try {
         Step 'Cleaning Flutter V2'
         flutter clean
+        if ($LASTEXITCODE -ne 0) { throw 'flutter clean failed.' }
 
         Step 'Resolving packages'
         flutter pub get
