@@ -916,11 +916,11 @@ class _UpdateCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            ListTile(
+            const ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.verified_outlined),
-              title: const Text('الإصدار الحالي'),
-              subtitle: const Text(
+              leading: Icon(Icons.verified_outlined),
+              title: Text('الإصدار الحالي'),
+              subtitle: Text(
                 AppInfo.version,
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
