@@ -1,12 +1,16 @@
 import 'package:flutter/foundation.dart';
 
 import 'data/school_schedule_defaults.dart';
+import 'models/bell_settings.dart';
 import 'models/notification_settings.dart';
 import 'models/school_period.dart';
 import 'models/school_schedule_settings.dart';
 import 'models/teacher_class.dart';
+import 'services/bell_audio_service.dart';
+import 'services/school_bell_engine.dart';
 import 'services/teacher_notification_scheduler.dart';
 import 'services/teacher_schedule_engine.dart';
+import 'storage/bell_settings_store.dart';
 import 'storage/notification_settings_store.dart';
 import 'storage/school_schedule_store.dart';
 import 'storage/teacher_schedule_store.dart';
@@ -16,33 +20,52 @@ class AppController extends ChangeNotifier {
     TeacherScheduleStore? store,
     SchoolScheduleStore? schoolScheduleStore,
     NotificationSettingsStore? notificationSettingsStore,
+    BellSettingsStore? bellSettingsStore,
     TeacherNotificationScheduler? notificationScheduler,
+    BellAudioService? bellAudioService,
+    SchoolBellEngine? schoolBellEngine,
   })  : _store = store ?? TeacherScheduleStore(),
         _schoolScheduleStore = schoolScheduleStore ?? SchoolScheduleStore(),
         _notificationSettingsStore =
             notificationSettingsStore ?? NotificationSettingsStore(),
+        _bellSettingsStore = bellSettingsStore ?? BellSettingsStore(),
         _notificationScheduler =
-            notificationScheduler ?? LocalTeacherNotificationScheduler();
+            notificationScheduler ?? LocalTeacherNotificationScheduler(),
+        _bellAudioService =
+            bellAudioService ?? MethodChannelBellAudioService(),
+        _schoolBellEngine = schoolBellEngine ?? const SchoolBellEngine();
 
   final TeacherScheduleStore _store;
   final SchoolScheduleStore _schoolScheduleStore;
   final NotificationSettingsStore _notificationSettingsStore;
+  final BellSettingsStore _bellSettingsStore;
   final TeacherNotificationScheduler _notificationScheduler;
+  final BellAudioService _bellAudioService;
+  final SchoolBellEngine _schoolBellEngine;
 
   List<TeacherClass> _teacherClasses = const <TeacherClass>[];
   SchoolScheduleSettings _schoolSchedule = SchoolScheduleDefaults.settings;
   NotificationSettings _notificationSettings = const NotificationSettings();
+  BellSettings _bellSettings = const BellSettings();
+
   bool _initialized = false;
   bool _notificationBusy = false;
+  bool _bellBusy = false;
   String _notificationStatus = 'التنبيهات غير مفعلة';
+  String _bellStatus = 'صوت الجرس غير مفعل';
+  String? _bellNotificationChannelId;
 
   bool get initialized => _initialized;
   List<TeacherClass> get teacherClasses => List.unmodifiable(_teacherClasses);
-  int get activeClassCount => _teacherClasses.where((item) => item.enabled).length;
+  int get activeClassCount =>
+      _teacherClasses.where((item) => item.enabled).length;
   SchoolScheduleSettings get schoolSchedule => _schoolSchedule;
   NotificationSettings get notificationSettings => _notificationSettings;
+  BellSettings get bellSettings => _bellSettings;
   bool get notificationBusy => _notificationBusy;
+  bool get bellBusy => _bellBusy;
   String get notificationStatus => _notificationStatus;
+  String get bellStatus => _bellStatus;
 
   List<SchoolPeriod> get teacherPeriodCatalog {
     final byId = <String, SchoolPeriod>{};
@@ -61,8 +84,14 @@ class AppController extends ChangeNotifier {
     _teacherClasses = await _store.load();
     _schoolSchedule = await _schoolScheduleStore.load();
     _notificationSettings = await _notificationSettingsStore.load();
+    _bellSettings = await _bellSettingsStore.load();
 
     await _notificationScheduler.initialize();
+    await _configureBellChannel();
+
+    _bellStatus = _bellSettings.enabled
+        ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
+        : 'صوت الجرس غير مفعل';
 
     if (_notificationSettings.enabled) {
       _notificationStatus = 'تنبيهات حصصي مفعلة';
@@ -94,6 +123,13 @@ class AppController extends ChangeNotifier {
 
   String effectiveProfileIdForWeekday(int weekday) {
     return _schoolSchedule.effectiveProfileIdForWeekday(weekday);
+  }
+
+  String schoolBellStateKeyAt(DateTime now) {
+    return _schoolBellEngine.stateKeyAt(
+      schedule: _schoolSchedule,
+      now: now,
+    );
   }
 
   Future<void> upsertTeacherClass(TeacherClass value) async {
@@ -181,6 +217,104 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setBellEnabled(bool enabled) async {
+    if (_bellBusy) return;
+
+    _bellSettings = _bellSettings.copyWith(enabled: enabled);
+    await _bellSettingsStore.save(_bellSettings);
+
+    _bellStatus = enabled
+        ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
+        : 'صوت الجرس غير مفعل';
+
+    notifyListeners();
+
+    if (enabled) {
+      await _bellAudioService.playPreview(_bellSettings);
+    } else {
+      await _bellAudioService.stopPreview();
+    }
+  }
+
+  Future<bool> pickBellRingtone() async {
+    if (_bellBusy) return false;
+
+    _bellBusy = true;
+    _bellStatus = 'اختر ملفًا صوتيًا من الجهاز';
+    notifyListeners();
+
+    try {
+      final selected = await _bellAudioService.pickRingtone();
+      if (selected == null) {
+        _bellStatus = _bellSettings.enabled
+            ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
+            : 'لم يتم تغيير النغمة';
+        return false;
+      }
+
+      _bellSettings = _bellSettings.copyWith(
+        ringtoneUri: selected.uri,
+        ringtoneName: selected.name,
+      );
+      await _bellSettingsStore.save(_bellSettings);
+      await _configureBellChannel();
+      await _syncNotifications();
+
+      _bellStatus = 'تم اختيار: ${selected.name}';
+      return true;
+    } finally {
+      _bellBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> resetBellRingtone() async {
+    if (_bellBusy) return;
+
+    _bellBusy = true;
+    notifyListeners();
+
+    try {
+      await _bellAudioService.stopPreview();
+      await _bellAudioService.resetRingtone();
+
+      _bellSettings = _bellSettings.copyWith(
+        ringtoneUri: '',
+        ringtoneName: 'نغمة النظام',
+      );
+      await _bellSettingsStore.save(_bellSettings);
+      await _configureBellChannel();
+      await _syncNotifications();
+
+      _bellStatus = _bellSettings.enabled
+          ? 'صوت الجرس مفعل • نغمة النظام'
+          : 'تمت استعادة نغمة النظام';
+    } finally {
+      _bellBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> setBellVolume(int volume) async {
+    final normalized = volume.clamp(0, 100).toInt();
+    if (_bellSettings.volume == normalized) return;
+
+    _bellSettings = _bellSettings.copyWith(volume: normalized);
+    await _bellSettingsStore.save(_bellSettings);
+    await _configureBellChannel();
+    notifyListeners();
+  }
+
+  Future<void> previewBell() async {
+    if (_bellBusy) return;
+    await _bellAudioService.playPreview(_bellSettings);
+  }
+
+  Future<void> playAutomaticSchoolBell() async {
+    if (!_bellSettings.enabled || _bellBusy) return;
+    await _bellAudioService.playPreview(_bellSettings);
+  }
+
   Future<bool> setNotificationSettings(NotificationSettings value) async {
     if (_notificationBusy) return false;
 
@@ -230,7 +364,9 @@ class AppController extends ChangeNotifier {
 
   Future<void> showTestNotification() async {
     if (!_notificationSettings.enabled || _notificationBusy) return;
-    await _notificationScheduler.showTestNotification();
+    await _notificationScheduler.showTestNotification(
+      androidChannelId: _bellNotificationChannelId,
+    );
   }
 
   TeacherTimeline timelineAt(DateTime now) {
@@ -244,6 +380,13 @@ class AppController extends ChangeNotifier {
     await _schoolScheduleStore.save(_schoolSchedule);
     await _syncNotifications();
     notifyListeners();
+  }
+
+  Future<void> _configureBellChannel() async {
+    final channelId = await _bellAudioService.configure(_bellSettings);
+    if (channelId != null && channelId.trim().isNotEmpty) {
+      _bellNotificationChannelId = channelId.trim();
+    }
   }
 
   Map<int, List<SchoolPeriod>> _notificationPeriodsByWeekday() {
@@ -268,6 +411,7 @@ class AppController extends ChangeNotifier {
       assignments: _teacherClasses,
       periodsByWeekday: _notificationPeriodsByWeekday(),
       settings: _notificationSettings,
+      androidChannelId: _bellNotificationChannelId,
     );
   }
 

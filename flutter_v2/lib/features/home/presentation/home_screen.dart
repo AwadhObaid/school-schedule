@@ -26,12 +26,17 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Timer? _ticker;
+  String? _lastBellStateKey;
+  DateTime? _lastBellTick;
 
   @override
   void initState() {
     super.initState();
     widget.controller.addListener(_refresh);
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _refresh());
+    final now = DateTime.now();
+    _lastBellStateKey = widget.controller.schoolBellStateKeyAt(now);
+    _lastBellTick = now;
+    _ticker = Timer.periodic(const Duration(seconds: 1), _onTick);
   }
 
   @override
@@ -40,6 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_refresh);
       widget.controller.addListener(_refresh);
+      final now = DateTime.now();
+      _lastBellStateKey = widget.controller.schoolBellStateKeyAt(now);
+      _lastBellTick = now;
     }
   }
 
@@ -51,6 +59,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _refresh() {
+    final now = DateTime.now();
+    _lastBellStateKey = widget.controller.schoolBellStateKeyAt(now);
+    _lastBellTick = now;
+    if (mounted) setState(() {});
+  }
+
+  void _onTick(Timer timer) {
+    final now = DateTime.now();
+    final stateKey = widget.controller.schoolBellStateKeyAt(now);
+    final lastTick = _lastBellTick;
+    final previousKey = _lastBellStateKey;
+
+    final continuousTick = lastTick != null &&
+        now.difference(lastTick).inMilliseconds.abs() <= 3500;
+
+    if (continuousTick &&
+        previousKey != null &&
+        previousKey != stateKey) {
+      unawaited(widget.controller.playAutomaticSchoolBell());
+    }
+
+    _lastBellStateKey = stateKey;
+    _lastBellTick = now;
+
     if (mounted) setState(() {});
   }
 
