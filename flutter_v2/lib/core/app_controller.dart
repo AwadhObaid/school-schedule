@@ -66,7 +66,7 @@ class AppController extends ChangeNotifier {
   SchoolScheduleSettings _schoolSchedule = SchoolScheduleDefaults.settings;
   NotificationSettings _notificationSettings = const NotificationSettings();
   BellSettings _bellSettings = const BellSettings();
-  AppAppearance _appearance = AppAppearance.system;
+  AppAppearance _appearance = AppAppearance.light;
   String _settingsPin = PinStore.defaultPin;
 
   bool _initialized = false;
