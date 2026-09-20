@@ -6,8 +6,10 @@ import 'package:timezone/timezone.dart' as tz;
 
 import '../models/notification_settings.dart';
 import '../models/school_period.dart';
+import '../models/school_schedule_settings.dart';
 import '../models/teacher_class.dart';
 import 'notification_schedule_planner.dart';
+import 'school_notification_planner.dart';
 
 class NotificationPermissionResult {
   const NotificationPermissionResult({
@@ -31,9 +33,21 @@ abstract class TeacherNotificationScheduler {
     String? androidChannelId,
   });
 
+  Future<void> syncSchoolSchedule({
+    required SchoolScheduleSettings schedule,
+    required bool enabled,
+    String? androidChannelId,
+  });
+
   Future<void> cancelTeacherNotifications();
 
+  Future<void> cancelSchoolScheduleNotifications();
+
   Future<void> showTestNotification({String? androidChannelId});
+
+  Future<void> showSchoolScheduleTestNotification({
+    String? androidChannelId,
+  });
 }
 
 class LocalTeacherNotificationScheduler
@@ -41,16 +55,24 @@ class LocalTeacherNotificationScheduler
   LocalTeacherNotificationScheduler({
     FlutterLocalNotificationsPlugin? plugin,
     NotificationSchedulePlanner? planner,
+    SchoolNotificationPlanner? schoolPlanner,
   })  : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
-        _planner = planner ?? const NotificationSchedulePlanner();
+        _planner = planner ?? const NotificationSchedulePlanner(),
+        _schoolPlanner = schoolPlanner ?? const SchoolNotificationPlanner();
 
-  static const _channelId = 'teacher_class_alerts';
-  static const _channelName = 'تنبيهات الحصص';
-  static const _channelDescription =
+  static const _teacherChannelId = 'teacher_class_alerts';
+  static const _teacherChannelName = 'تنبيهات حصصي';
+  static const _teacherChannelDescription =
       'تنبيهات ما قبل الحصة وبدايتها ونهايتها';
+
+  static const _schoolChannelId = 'school_schedule_alerts';
+  static const _schoolChannelName = 'تنبيهات الجدول المدرسي';
+  static const _schoolChannelDescription =
+      'تنبيهات بداية ونهاية جميع فترات الدوام المدرسي';
 
   final FlutterLocalNotificationsPlugin _plugin;
   final NotificationSchedulePlanner _planner;
+  final SchoolNotificationPlanner _schoolPlanner;
 
   bool _initialized = false;
   bool _exactAlarmsGranted = false;
@@ -79,9 +101,20 @@ class LocalTeacherNotificationScheduler
       if (android != null) {
         await android.createNotificationChannel(
           const AndroidNotificationChannel(
-            _channelId,
-            _channelName,
-            description: _channelDescription,
+            _teacherChannelId,
+            _teacherChannelName,
+            description: _teacherChannelDescription,
+            importance: Importance.high,
+            playSound: true,
+            enableVibration: true,
+          ),
+        );
+
+        await android.createNotificationChannel(
+          const AndroidNotificationChannel(
+            _schoolChannelId,
+            _schoolChannelName,
+            description: _schoolChannelDescription,
             importance: Importance.high,
             playSound: true,
             enableVibration: true,
@@ -161,62 +194,89 @@ class LocalTeacherNotificationScheduler
         settings: settings,
       );
 
-      final mode = _exactAlarmsGranted
-          ? AndroidScheduleMode.exactAllowWhileIdle
-          : AndroidScheduleMode.inexactAllowWhileIdle;
-
-      final channelId = (androidChannelId ?? '').trim().isEmpty
-          ? _channelId
-          : androidChannelId!.trim();
-
-      final details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          channelId,
-          _channelName,
-          channelDescription: _channelDescription,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: 'ic_stat_school',
-        ),
+      final details = _details(
+        channelId: androidChannelId,
+        fallbackChannelId: _teacherChannelId,
+        channelName: _teacherChannelName,
+        channelDescription: _teacherChannelDescription,
       );
 
       final now = tz.TZDateTime.now(tz.local);
 
       for (final item in planned) {
-        final scheduled = _nextOccurrence(
-          now: now,
-          weekday: item.weekday,
-          minutesOfDay: item.minutesOfDay,
-        );
-
-        await _plugin.zonedSchedule(
+        await _scheduleWeekly(
           id: item.id,
           title: item.title,
           body: item.body,
-          scheduledDate: scheduled,
-          notificationDetails: details,
-          androidScheduleMode: mode,
           payload: item.payload,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+          weekday: item.weekday,
+          minutesOfDay: item.minutesOfDay,
+          details: details,
+          now: now,
         );
       }
     } catch (error, stackTrace) {
-      debugPrint('Notification sync failed: $error');
+      debugPrint('Teacher notification sync failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  Future<void> syncSchoolSchedule({
+    required SchoolScheduleSettings schedule,
+    required bool enabled,
+    String? androidChannelId,
+  }) async {
+    await initialize();
+
+    try {
+      await cancelSchoolScheduleNotifications();
+      if (!enabled) return;
+
+      final planned = _schoolPlanner.build(
+        schedule: schedule,
+        enabled: enabled,
+      );
+
+      final details = _details(
+        channelId: androidChannelId,
+        fallbackChannelId: _schoolChannelId,
+        channelName: _schoolChannelName,
+        channelDescription: _schoolChannelDescription,
+      );
+
+      final now = tz.TZDateTime.now(tz.local);
+
+      for (final item in planned) {
+        await _scheduleWeekly(
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          payload: item.payload,
+          weekday: item.weekday,
+          minutesOfDay: item.minutesOfDay,
+          details: details,
+          now: now,
+        );
+      }
+    } catch (error, stackTrace) {
+      debugPrint('School notification sync failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
   }
 
   @override
   Future<void> cancelTeacherNotifications() async {
+    await _cancelRange(300000, 400000, 'teacher');
+  }
+
+  @override
+  Future<void> cancelSchoolScheduleNotifications() async {
+    await _cancelRange(900000, 910000, 'school');
     try {
-      final pending = await _plugin.pendingNotificationRequests();
-      for (final item in pending) {
-        if (item.id >= 300000 && item.id < 400000) {
-          await _plugin.cancel(id: item.id);
-        }
-      }
-    } catch (error) {
-      debugPrint('Teacher notification cancellation skipped: $error');
+      await _plugin.cancel(id: 899999);
+    } catch (_) {
+      // Best effort.
     }
   }
 
@@ -228,23 +288,110 @@ class LocalTeacherNotificationScheduler
       await _plugin.show(
         id: 399999,
         title: 'اختبار تنبيهات حصصي',
-        body: 'التنبيهات تعمل بنجاح على هذا الجهاز.',
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            (androidChannelId ?? '').trim().isEmpty
-                ? _channelId
-                : androidChannelId!.trim(),
-            _channelName,
-            channelDescription: _channelDescription,
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: 'ic_stat_school',
-          ),
+        body: 'تنبيهات حصصك الشخصية تعمل بنجاح على هذا الجهاز.',
+        notificationDetails: _details(
+          channelId: androidChannelId,
+          fallbackChannelId: _teacherChannelId,
+          channelName: _teacherChannelName,
+          channelDescription: _teacherChannelDescription,
         ),
       );
     } catch (error, stackTrace) {
-      debugPrint('Test notification failed: $error');
+      debugPrint('Teacher test notification failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  @override
+  Future<void> showSchoolScheduleTestNotification({
+    String? androidChannelId,
+  }) async {
+    await initialize();
+
+    try {
+      await _plugin.show(
+        id: 899999,
+        title: 'اختبار تنبيهات الجدول المدرسي',
+        body: 'تنبيهات الفترات العامة تعمل بنجاح على هذا الجهاز.',
+        notificationDetails: _details(
+          channelId: androidChannelId,
+          fallbackChannelId: _schoolChannelId,
+          channelName: _schoolChannelName,
+          channelDescription: _schoolChannelDescription,
+        ),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('School test notification failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  NotificationDetails _details({
+    required String? channelId,
+    required String fallbackChannelId,
+    required String channelName,
+    required String channelDescription,
+  }) {
+    final resolvedChannelId = (channelId ?? '').trim().isEmpty
+        ? fallbackChannelId
+        : channelId!.trim();
+
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        resolvedChannelId,
+        channelName,
+        channelDescription: channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: 'ic_stat_school',
+      ),
+    );
+  }
+
+  Future<void> _scheduleWeekly({
+    required int id,
+    required String title,
+    required String body,
+    required String payload,
+    required int weekday,
+    required int minutesOfDay,
+    required NotificationDetails details,
+    required tz.TZDateTime now,
+  }) async {
+    final scheduled = _nextOccurrence(
+      now: now,
+      weekday: weekday,
+      minutesOfDay: minutesOfDay,
+    );
+
+    await _plugin.zonedSchedule(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      notificationDetails: details,
+      androidScheduleMode: _exactAlarmsGranted
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
+      payload: payload,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  Future<void> _cancelRange(
+    int lowerInclusive,
+    int upperExclusive,
+    String label,
+  ) async {
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      for (final item in pending) {
+        if (item.id >= lowerInclusive && item.id < upperExclusive) {
+          await _plugin.cancel(id: item.id);
+        }
+      }
+    } catch (error) {
+      debugPrint('$label notification cancellation skipped: $error');
     }
   }
 

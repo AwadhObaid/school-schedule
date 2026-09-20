@@ -6,6 +6,7 @@ import '../../../core/models/app_appearance.dart';
 import '../../../core/models/app_backup.dart';
 import '../../../core/models/bell_settings.dart';
 import '../../../core/models/notification_settings.dart';
+import '../../../core/models/school_notification_settings.dart';
 import '../../../core/services/legacy_backup_migration.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -25,6 +26,8 @@ class SettingsScreen extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final notificationSettings = controller.notificationSettings;
+        final schoolNotificationSettings =
+            controller.schoolNotificationSettings;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
@@ -35,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'خصص صوت الجرس وتنبيهات حصصك من مكان واحد.',
+              'خصص صوت الجرس وتنبيهات الجدول المدرسي وتنبيهات حصصك من مكان واحد.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 18),
@@ -53,6 +56,18 @@ class SettingsScreen extends StatelessWidget {
               onResetRingtone: controller.resetBellRingtone,
               onVolumeChanged: controller.setBellVolume,
               onPreview: controller.previewBell,
+            ),
+            const SizedBox(height: 16),
+            _SchoolNotificationCard(
+              settings: schoolNotificationSettings,
+              busy: controller.schoolNotificationBusy,
+              status: controller.schoolNotificationStatus,
+              onEnabledChanged: (value) async {
+                await controller.setSchoolNotificationSettings(
+                  schoolNotificationSettings.copyWith(enabled: value),
+                );
+              },
+              onTest: controller.showSchoolScheduleTestNotification,
             ),
             const SizedBox(height: 16),
             _NotificationCard(
@@ -335,6 +350,96 @@ class _BellCardState extends State<_BellCard> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SchoolNotificationCard extends StatelessWidget {
+  const _SchoolNotificationCard({
+    required this.settings,
+    required this.busy,
+    required this.status,
+    required this.onEnabledChanged,
+    required this.onTest,
+  });
+
+  final SchoolNotificationSettings settings;
+  final bool busy;
+  final String status;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = settings.enabled && !busy;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+        child: Column(
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: settings.enabled,
+              onChanged: busy ? null : onEnabledChanged,
+              secondary: CircleAvatar(
+                backgroundColor:
+                    Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.schedule_send_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              title: const Text(
+                'تنبيهات الجدول المدرسي',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text(
+                'بداية ونهاية جميع فترات الدوام حتى إذا لم تستخدم «حصصي»',
+              ),
+            ),
+            if (busy) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 12),
+            ],
+            const Divider(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  settings.enabled
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.info_outline_rounded,
+                  color: settings.enabled
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    status,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'تتبع هذه التنبيهات الجدول الفعلي لكل يوم، بما في ذلك رمضان والجداول المخصصة والطابور والفسحة.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: enabled ? onTest : null,
+                icon: const Icon(Icons.notifications_none_rounded),
+                label: const Text('اختبار تنبيهات الجدول الآن'),
+              ),
             ),
           ],
         ),
@@ -725,7 +830,7 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
           'عدد الجداول: ${data.scheduleCount}\n'
           'نغمة مخصصة قديمة: ${data.hadCustomRingtone ? 'نعم' : 'لا'}\n\n'
           '$warnings\n\n'
-          'سيتم استبدال الجداول وPIN وإعدادات الجرس والتنبيهات بالقيم القديمة، بينما تبقى «حصصي» والمظهر الحالي محفوظين.',
+          'سيتم استبدال الجداول وPIN وإعدادات الجرس وتنبيهات الجدول العامة بالقيم القديمة، بينما تبقى «حصصي» وتنبيهاتها الشخصية والمظهر الحالي محفوظة.',
         ),
         actions: [
           TextButton(

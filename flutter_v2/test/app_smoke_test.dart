@@ -6,6 +6,7 @@ import 'package:schedule/core/models/app_appearance.dart';
 import 'package:schedule/core/models/bell_settings.dart';
 import 'package:schedule/core/models/notification_settings.dart';
 import 'package:schedule/core/models/school_period.dart';
+import 'package:schedule/core/models/school_schedule_settings.dart';
 import 'package:schedule/core/models/teacher_class.dart';
 import 'package:schedule/core/services/app_share_service.dart';
 import 'package:schedule/core/services/bell_audio_service.dart';
@@ -122,6 +123,34 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('settings expose general school notifications',
+      (tester) async {
+    final controller = createController();
+
+    await tester.pumpWidget(SchoolScheduleApp(controller: controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await openSettings(tester);
+
+    for (var attempt = 0;
+        attempt < 5 &&
+            find.text('تنبيهات الجدول المدرسي').evaluate().isEmpty;
+        attempt += 1) {
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('تنبيهات الجدول المدرسي'), findsOneWidget);
+    expect(find.text('اختبار تنبيهات الجدول الآن'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
   testWidgets('settings require the default PIN', (tester) async {
     final controller = createController();
 
@@ -202,10 +231,25 @@ class _FakeNotificationScheduler implements TeacherNotificationScheduler {
   }) async {}
 
   @override
+  Future<void> syncSchoolSchedule({
+    required SchoolScheduleSettings schedule,
+    required bool enabled,
+    String? androidChannelId,
+  }) async {}
+
+  @override
   Future<void> cancelTeacherNotifications() async {}
 
   @override
+  Future<void> cancelSchoolScheduleNotifications() async {}
+
+  @override
   Future<void> showTestNotification({String? androidChannelId}) async {}
+
+  @override
+  Future<void> showSchoolScheduleTestNotification({
+    String? androidChannelId,
+  }) async {}
 }
 
 class _FakeBellAudioService implements BellAudioService {

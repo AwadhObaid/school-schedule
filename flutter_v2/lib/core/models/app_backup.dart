@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'app_appearance.dart';
 import 'bell_settings.dart';
 import 'notification_settings.dart';
+import 'school_notification_settings.dart';
 import 'school_schedule_settings.dart';
 import 'teacher_class.dart';
 
@@ -15,6 +16,7 @@ class AppBackup {
     required this.teacherClasses,
     required this.notificationSettings,
     required this.bellSettings,
+    this.schoolNotificationSettings = const SchoolNotificationSettings(),
     this.appearance = AppAppearance.light,
     this.ringtoneName,
     this.ringtoneBase64,
@@ -30,6 +32,7 @@ class AppBackup {
   final List<TeacherClass> teacherClasses;
   final NotificationSettings notificationSettings;
   final BellSettings bellSettings;
+  final SchoolNotificationSettings schoolNotificationSettings;
   final AppAppearance appearance;
   final String? ringtoneName;
   final String? ringtoneBase64;
@@ -49,6 +52,7 @@ class AppBackup {
         'teacherClasses':
             teacherClasses.map((item) => item.toJson()).toList(growable: false),
         'notificationSettings': notificationSettings.toJson(),
+        'schoolNotificationSettings': schoolNotificationSettings.toJson(),
         'bellSettings': bellSettings.toJson(),
         'appearance': appearance.storageValue,
         'ringtone': includesCustomRingtone
@@ -171,6 +175,13 @@ class AppBackup {
             )
           : const NotificationSettings();
 
+      final rawSchoolNotification = data['schoolNotificationSettings'];
+      final schoolNotificationSettings = rawSchoolNotification is Map
+          ? SchoolNotificationSettings.fromJson(
+              Map<String, dynamic>.from(rawSchoolNotification),
+            )
+          : const SchoolNotificationSettings();
+
       final rawBell = data['bellSettings'];
       final bellSettings = rawBell is Map
           ? BellSettings.fromJson(Map<String, dynamic>.from(rawBell))
@@ -219,6 +230,7 @@ class AppBackup {
           teacherClasses: List<TeacherClass>.unmodifiable(teacherClasses),
           notificationSettings: notificationSettings,
           bellSettings: bellSettings,
+          schoolNotificationSettings: schoolNotificationSettings,
           appearance: appearance,
           ringtoneName: ringtoneName,
           ringtoneBase64: ringtoneBase64,

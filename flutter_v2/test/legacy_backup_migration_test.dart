@@ -83,8 +83,8 @@ void main() {
     expect(data.pin, '2468');
     expect(data.scheduleCount, 2);
     expect(data.schoolSchedule.ramadanMode, isTrue);
-    expect(data.notificationSettings.enabled, isTrue);
-    expect(data.notificationSettings.preAlertMinutes, 0);
+    expect(data.notificationSettings.enabled, isFalse);
+    expect(data.schoolNotificationSettings.enabled, isTrue);
     expect(data.bellSettings.enabled, isTrue);
     expect(data.bellSettings.volume, 65);
 
@@ -163,6 +163,7 @@ void main() {
     expect(result.isValid, isTrue);
     expect(result.data?.pin, '0000');
     expect(result.data?.hadCustomRingtone, isFalse);
+    expect(result.data?.schoolNotificationSettings.enabled, isFalse);
   });
 
   test('rejects overlapping legacy periods', () {

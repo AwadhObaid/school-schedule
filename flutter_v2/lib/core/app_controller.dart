@@ -6,6 +6,7 @@ import 'models/app_appearance.dart';
 import 'models/app_backup.dart';
 import 'models/bell_settings.dart';
 import 'models/notification_settings.dart';
+import 'models/school_notification_settings.dart';
 import 'models/school_period.dart';
 import 'models/school_schedule_settings.dart';
 import 'models/teacher_class.dart';
@@ -14,12 +15,14 @@ import 'services/backup_file_service.dart';
 import 'services/bell_audio_service.dart';
 import 'services/legacy_backup_migration.dart';
 import 'services/school_bell_engine.dart';
+import 'services/school_day_engine.dart';
 import 'services/teacher_notification_scheduler.dart';
 import 'services/teacher_schedule_engine.dart';
 import 'storage/appearance_store.dart';
 import 'storage/bell_settings_store.dart';
 import 'storage/pin_store.dart';
 import 'storage/notification_settings_store.dart';
+import 'storage/school_notification_settings_store.dart';
 import 'storage/school_schedule_store.dart';
 import 'storage/teacher_schedule_store.dart';
 
@@ -28,6 +31,7 @@ class AppController extends ChangeNotifier {
     TeacherScheduleStore? store,
     SchoolScheduleStore? schoolScheduleStore,
     NotificationSettingsStore? notificationSettingsStore,
+    SchoolNotificationSettingsStore? schoolNotificationSettingsStore,
     BellSettingsStore? bellSettingsStore,
     PinStore? pinStore,
     AppearanceStore? appearanceStore,
@@ -40,6 +44,9 @@ class AppController extends ChangeNotifier {
         _schoolScheduleStore = schoolScheduleStore ?? SchoolScheduleStore(),
         _notificationSettingsStore =
             notificationSettingsStore ?? NotificationSettingsStore(),
+        _schoolNotificationSettingsStore =
+            schoolNotificationSettingsStore ??
+                SchoolNotificationSettingsStore(),
         _bellSettingsStore = bellSettingsStore ?? BellSettingsStore(),
         _pinStore = pinStore ?? PinStore(),
         _appearanceStore = appearanceStore ?? AppearanceStore(),
@@ -54,6 +61,7 @@ class AppController extends ChangeNotifier {
   final TeacherScheduleStore _store;
   final SchoolScheduleStore _schoolScheduleStore;
   final NotificationSettingsStore _notificationSettingsStore;
+  final SchoolNotificationSettingsStore _schoolNotificationSettingsStore;
   final BellSettingsStore _bellSettingsStore;
   final PinStore _pinStore;
   final AppearanceStore _appearanceStore;
@@ -66,15 +74,19 @@ class AppController extends ChangeNotifier {
   List<TeacherClass> _teacherClasses = const <TeacherClass>[];
   SchoolScheduleSettings _schoolSchedule = SchoolScheduleDefaults.settings;
   NotificationSettings _notificationSettings = const NotificationSettings();
+  SchoolNotificationSettings _schoolNotificationSettings =
+      const SchoolNotificationSettings();
   BellSettings _bellSettings = const BellSettings();
   AppAppearance _appearance = AppAppearance.light;
   String _settingsPin = PinStore.defaultPin;
 
   bool _initialized = false;
   bool _notificationBusy = false;
+  bool _schoolNotificationBusy = false;
   bool _bellBusy = false;
   bool _backupBusy = false;
   String _notificationStatus = 'التنبيهات غير مفعلة';
+  String _schoolNotificationStatus = 'تنبيهات الجدول المدرسي غير مفعلة';
   String _bellStatus = 'صوت الجرس غير مفعل';
   String _backupStatus = 'لم يتم إنشاء نسخة احتياطية في هذه الجلسة';
   String? _bellNotificationChannelId;
@@ -85,12 +97,16 @@ class AppController extends ChangeNotifier {
       _teacherClasses.where((item) => item.enabled).length;
   SchoolScheduleSettings get schoolSchedule => _schoolSchedule;
   NotificationSettings get notificationSettings => _notificationSettings;
+  SchoolNotificationSettings get schoolNotificationSettings =>
+      _schoolNotificationSettings;
   BellSettings get bellSettings => _bellSettings;
   AppAppearance get appearance => _appearance;
   bool get notificationBusy => _notificationBusy;
+  bool get schoolNotificationBusy => _schoolNotificationBusy;
   bool get bellBusy => _bellBusy;
   bool get backupBusy => _backupBusy;
   String get notificationStatus => _notificationStatus;
+  String get schoolNotificationStatus => _schoolNotificationStatus;
   String get bellStatus => _bellStatus;
   String get backupStatus => _backupStatus;
 
@@ -111,6 +127,8 @@ class AppController extends ChangeNotifier {
     _teacherClasses = await _store.load();
     _schoolSchedule = await _schoolScheduleStore.load();
     _notificationSettings = await _notificationSettingsStore.load();
+    _schoolNotificationSettings =
+        await _schoolNotificationSettingsStore.load();
     _bellSettings = await _bellSettingsStore.load();
     _appearance = await _appearanceStore.load();
     _settingsPin = await _pinStore.load();
@@ -124,6 +142,11 @@ class AppController extends ChangeNotifier {
 
     if (_notificationSettings.enabled) {
       _notificationStatus = 'تنبيهات حصصي مفعلة';
+    }
+    if (_schoolNotificationSettings.enabled) {
+      _schoolNotificationStatus = 'تنبيهات الجدول المدرسي مفعلة';
+    }
+    if (_notificationSettings.enabled || _schoolNotificationSettings.enabled) {
       await _syncNotifications();
     }
 
@@ -533,6 +556,7 @@ class AppController extends ChangeNotifier {
         schoolSchedule: _schoolSchedule,
         teacherClasses: _teacherClasses,
         notificationSettings: _notificationSettings,
+        schoolNotificationSettings: _schoolNotificationSettings,
         bellSettings: _bellSettings,
         appearance: _appearance,
         ringtoneName: ringtone?.name,
@@ -615,6 +639,7 @@ class AppController extends ChangeNotifier {
       _schoolSchedule = backup.schoolSchedule;
       _teacherClasses = List<TeacherClass>.unmodifiable(backup.teacherClasses);
       _notificationSettings = backup.notificationSettings;
+      _schoolNotificationSettings = backup.schoolNotificationSettings;
       _bellSettings = restoredBell;
       _appearance = backup.appearance;
       _settingsPin = backup.pin;
@@ -622,17 +647,16 @@ class AppController extends ChangeNotifier {
       await _schoolScheduleStore.save(_schoolSchedule);
       await _store.save(_teacherClasses);
       await _notificationSettingsStore.save(_notificationSettings);
+      await _schoolNotificationSettingsStore.save(
+        _schoolNotificationSettings,
+      );
       await _bellSettingsStore.save(_bellSettings);
       await _appearanceStore.save(_appearance);
       await _pinStore.save(_settingsPin);
 
       await _configureBellChannel();
 
-      if (_notificationSettings.enabled) {
-        await _syncNotifications();
-      } else {
-        await _notificationScheduler.cancelTeacherNotifications();
-      }
+      await _syncNotifications();
 
       _bellStatus = _bellSettings.enabled
           ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
@@ -640,6 +664,9 @@ class AppController extends ChangeNotifier {
       _notificationStatus = _notificationSettings.enabled
           ? 'تنبيهات حصصي مفعلة'
           : 'التنبيهات غير مفعلة';
+      _schoolNotificationStatus = _schoolNotificationSettings.enabled
+          ? 'تنبيهات الجدول المدرسي مفعلة'
+          : 'تنبيهات الجدول المدرسي غير مفعلة';
       _backupStatus = 'تمت استعادة النسخة الاحتياطية بنجاح.';
       return true;
     } finally {
@@ -699,22 +726,20 @@ class AppController extends ChangeNotifier {
       }
 
       _schoolSchedule = data.schoolSchedule;
-      _notificationSettings = data.notificationSettings;
+      _schoolNotificationSettings = data.schoolNotificationSettings;
       _bellSettings = data.bellSettings;
       _settingsPin = data.pin;
 
       await _schoolScheduleStore.save(_schoolSchedule);
-      await _notificationSettingsStore.save(_notificationSettings);
+      await _schoolNotificationSettingsStore.save(
+        _schoolNotificationSettings,
+      );
       await _bellSettingsStore.save(_bellSettings);
       await _pinStore.save(_settingsPin);
 
       await _configureBellChannel();
 
-      if (_notificationSettings.enabled) {
-        await _syncNotifications();
-      } else {
-        await _notificationScheduler.cancelTeacherNotifications();
-      }
+      await _syncNotifications();
 
       _bellStatus = _bellSettings.enabled
           ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
@@ -722,14 +747,78 @@ class AppController extends ChangeNotifier {
       _notificationStatus = _notificationSettings.enabled
           ? 'تنبيهات حصصي مفعلة'
           : 'التنبيهات غير مفعلة';
+      _schoolNotificationStatus = _schoolNotificationSettings.enabled
+          ? 'تنبيهات الجدول المدرسي مفعلة'
+          : 'تنبيهات الجدول المدرسي غير مفعلة';
 
       _backupStatus =
-          'تم ترحيل بيانات التطبيق القديم. حصص Flutter الشخصية بقيت محفوظة.';
+          'تم ترحيل بيانات التطبيق القديم. حصص Flutter وتنبيهاتها الشخصية بقيت محفوظة.';
       return true;
     } finally {
       _backupBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> setSchoolNotificationSettings(
+    SchoolNotificationSettings value,
+  ) async {
+    if (_schoolNotificationBusy) return false;
+
+    _schoolNotificationBusy = true;
+    notifyListeners();
+
+    try {
+      var next = value;
+
+      if (value.enabled && !_schoolNotificationSettings.enabled) {
+        final permissions = await _notificationScheduler.requestPermissions();
+
+        if (!permissions.notificationsGranted) {
+          next = value.copyWith(enabled: false);
+          _schoolNotificationStatus =
+              'لم يتم منح إذن الإشعارات. يمكنك المحاولة مرة أخرى من الإعدادات.';
+          _schoolNotificationSettings = next;
+          await _schoolNotificationSettingsStore.save(next);
+          await _notificationScheduler.cancelSchoolScheduleNotifications();
+          return false;
+        }
+
+        _schoolNotificationStatus = permissions.exactAlarmsGranted
+            ? 'تنبيهات الجدول الدقيقة مفعلة'
+            : 'تنبيهات الجدول مفعلة بوضع تقريبي لأن إذن التنبيه الدقيق غير متاح';
+      } else if (!value.enabled) {
+        _schoolNotificationStatus = 'تنبيهات الجدول المدرسي غير مفعلة';
+      } else {
+        _schoolNotificationStatus = 'تنبيهات الجدول المدرسي مفعلة';
+      }
+
+      _schoolNotificationSettings = next;
+      await _schoolNotificationSettingsStore.save(next);
+
+      if (next.enabled) {
+        await _notificationScheduler.syncSchoolSchedule(
+          schedule: _schoolSchedule,
+          enabled: true,
+          androidChannelId: _bellNotificationChannelId,
+        );
+      } else {
+        await _notificationScheduler.cancelSchoolScheduleNotifications();
+      }
+
+      return next.enabled == value.enabled;
+    } finally {
+      _schoolNotificationBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> showSchoolScheduleTestNotification() async {
+    if (!_schoolNotificationSettings.enabled || _schoolNotificationBusy) return;
+
+    await _notificationScheduler.showSchoolScheduleTestNotification(
+      androidChannelId: _bellNotificationChannelId,
+    );
   }
 
   Future<bool> setNotificationSettings(NotificationSettings value) async {
@@ -786,6 +875,12 @@ class AppController extends ChangeNotifier {
     );
   }
 
+  SchoolDayStatus schoolDayStatusAt(DateTime now) {
+    return SchoolDayEngine(
+      scheduleSettings: _schoolSchedule,
+    ).evaluate(now);
+  }
+
   TeacherTimeline timelineAt(DateTime now) {
     return TeacherScheduleEngine(
       scheduleSettings: _schoolSchedule,
@@ -822,14 +917,26 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> _syncNotifications() async {
-    if (!_notificationSettings.enabled) return;
+    if (_notificationSettings.enabled) {
+      await _notificationScheduler.sync(
+        assignments: _teacherClasses,
+        periodsByWeekday: _notificationPeriodsByWeekday(),
+        settings: _notificationSettings,
+        androidChannelId: _bellNotificationChannelId,
+      );
+    } else {
+      await _notificationScheduler.cancelTeacherNotifications();
+    }
 
-    await _notificationScheduler.sync(
-      assignments: _teacherClasses,
-      periodsByWeekday: _notificationPeriodsByWeekday(),
-      settings: _notificationSettings,
-      androidChannelId: _bellNotificationChannelId,
-    );
+    if (_schoolNotificationSettings.enabled) {
+      await _notificationScheduler.syncSchoolSchedule(
+        schedule: _schoolSchedule,
+        enabled: true,
+        androidChannelId: _bellNotificationChannelId,
+      );
+    } else {
+      await _notificationScheduler.cancelSchoolScheduleNotifications();
+    }
   }
 
   int _nextTeacherPeriodNumber(String profileId) {
