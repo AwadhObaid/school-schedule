@@ -6,6 +6,7 @@ import '../../../core/models/app_appearance.dart';
 import '../../../core/models/app_backup.dart';
 import '../../../core/models/bell_settings.dart';
 import '../../../core/models/notification_settings.dart';
+import '../../../core/services/legacy_backup_migration.dart';
 import '../../../core/theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -605,6 +606,17 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: busy ? null : _migrateLegacyBackup,
+              icon: const Icon(Icons.move_down_rounded),
+              label: const Text('استيراد من التطبيق القديم'),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'يقبل ملف JSON الذي صدّرته النسخة القديمة 1.4.2. حصص Flutter الشخصية والمظهر الحالي لا يتم حذفهما أثناء الترحيل.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             if (busy) ...[
               const SizedBox(height: 12),
               const LinearProgressIndicator(),
@@ -676,6 +688,57 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
     if (restored) {
       _message('تمت استعادة النسخة الاحتياطية بنجاح.');
     }
+  }
+
+  Future<void> _migrateLegacyBackup() async {
+    final result = await widget.controller.pickLegacyBackup();
+
+    if (!mounted || result == null || !result.isValid) {
+      final error = result?.error;
+      if (error != null) _message(error);
+      return;
+    }
+
+    final data = result.data!;
+    final accepted = await _confirmLegacyMigration(data);
+    if (!mounted || accepted != true) return;
+
+    final migrated = await widget.controller.applyLegacyMigration(data);
+    if (!mounted) return;
+
+    if (migrated) {
+      _message('تم ترحيل بيانات التطبيق القديم بنجاح.');
+    }
+  }
+
+  Future<bool?> _confirmLegacyMigration(LegacyMigrationData data) {
+    final warnings = data.warnings
+        .map((item) => '• $item')
+        .join('\n');
+
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ترحيل بيانات التطبيق القديم؟'),
+        content: Text(
+          'إصدار المصدر: ${data.sourceVersion}\n'
+          'عدد الجداول: ${data.scheduleCount}\n'
+          'نغمة مخصصة قديمة: ${data.hadCustomRingtone ? 'نعم' : 'لا'}\n\n'
+          '$warnings\n\n'
+          'سيتم استبدال الجداول وPIN وإعدادات الجرس والتنبيهات بالقيم القديمة، بينما تبقى «حصصي» والمظهر الحالي محفوظين.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('بدء الترحيل'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool?> _confirmBackup(AppBackup backup) {

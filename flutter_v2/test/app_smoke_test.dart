@@ -143,6 +143,7 @@ void main() {
     expect(find.text('الحماية والنسخ الاحتياطي'), findsOneWidget);
     expect(find.text('تصدير نسخة'), findsOneWidget);
     expect(find.text('استعادة نسخة'), findsOneWidget);
+    expect(find.text('استيراد من التطبيق القديم'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();

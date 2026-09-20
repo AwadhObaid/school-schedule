@@ -12,6 +12,7 @@ import 'models/teacher_class.dart';
 import 'services/app_share_service.dart';
 import 'services/backup_file_service.dart';
 import 'services/bell_audio_service.dart';
+import 'services/legacy_backup_migration.dart';
 import 'services/school_bell_engine.dart';
 import 'services/teacher_notification_scheduler.dart';
 import 'services/teacher_schedule_engine.dart';
@@ -656,6 +657,79 @@ class AppController extends ChangeNotifier {
 
   Future<bool> shareApplication() async {
     return _appShareService.shareText(AppInfo.shareText);
+  }
+
+  Future<LegacyMigrationParseResult?> pickLegacyBackup() async {
+    if (_backupBusy) return null;
+
+    _backupBusy = true;
+    _backupStatus = 'جارٍ قراءة نسخة التطبيق القديم...';
+    notifyListeners();
+
+    try {
+      final text = await _backupFileService.pickBackup();
+
+      if (text == null || text.trim().isEmpty) {
+        _backupStatus = 'لم يتم اختيار ملف.';
+        return null;
+      }
+
+      final result = LegacyBackupMigration.parse(text);
+      _backupStatus = result.isValid
+          ? 'تم التحقق من نسخة التطبيق القديم بنجاح.'
+          : (result.error ?? 'نسخة التطبيق القديم غير صالحة.');
+      return result;
+    } finally {
+      _backupBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> applyLegacyMigration(LegacyMigrationData data) async {
+    if (_backupBusy) return false;
+
+    _backupBusy = true;
+    _backupStatus = 'جارٍ ترحيل بيانات التطبيق القديم...';
+    notifyListeners();
+
+    try {
+      if (data.hadCustomRingtone) {
+        await _bellAudioService.stopPreview();
+        await _bellAudioService.resetRingtone();
+      }
+
+      _schoolSchedule = data.schoolSchedule;
+      _notificationSettings = data.notificationSettings;
+      _bellSettings = data.bellSettings;
+      _settingsPin = data.pin;
+
+      await _schoolScheduleStore.save(_schoolSchedule);
+      await _notificationSettingsStore.save(_notificationSettings);
+      await _bellSettingsStore.save(_bellSettings);
+      await _pinStore.save(_settingsPin);
+
+      await _configureBellChannel();
+
+      if (_notificationSettings.enabled) {
+        await _syncNotifications();
+      } else {
+        await _notificationScheduler.cancelTeacherNotifications();
+      }
+
+      _bellStatus = _bellSettings.enabled
+          ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
+          : 'صوت الجرس غير مفعل';
+      _notificationStatus = _notificationSettings.enabled
+          ? 'تنبيهات حصصي مفعلة'
+          : 'التنبيهات غير مفعلة';
+
+      _backupStatus =
+          'تم ترحيل بيانات التطبيق القديم. حصص Flutter الشخصية بقيت محفوظة.';
+      return true;
+    } finally {
+      _backupBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> setNotificationSettings(NotificationSettings value) async {
