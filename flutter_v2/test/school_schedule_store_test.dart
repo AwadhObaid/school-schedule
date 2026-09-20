@@ -11,7 +11,7 @@ void main() {
 
   test('school schedule settings persist locally', () async {
     final store = SchoolScheduleStore();
-    final defaults = SchoolScheduleDefaults.settings;
+    const defaults = SchoolScheduleDefaults.settings;
     final normal = defaults.profiles[SchoolScheduleSettings.normalProfileId]!;
     final periods = List.of(normal.periods);
     final p1Index = periods.indexWhere((item) => item.id == 'p1');
