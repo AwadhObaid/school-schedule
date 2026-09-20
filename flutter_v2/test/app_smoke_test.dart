@@ -22,10 +22,7 @@ void main() {
     );
   }
 
-  Future<void> openSettings(
-    WidgetTester tester,
-    AppController controller,
-  ) async {
+  Future<void> openSettings(WidgetTester tester) async {
     await tester.tap(find.text('الإعدادات'));
     await tester.pumpAndSettle();
 
@@ -64,7 +61,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    await openSettings(tester, controller);
+    await openSettings(tester);
 
     expect(find.text('صوت الجرس المدرسي'), findsOneWidget);
     expect(find.text('تنبيهات حصصي'), findsOneWidget);
