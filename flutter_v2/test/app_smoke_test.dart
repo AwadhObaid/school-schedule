@@ -20,4 +20,30 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('saving a teacher class closes editor before state refresh', (tester) async {
+    await tester.pumpWidget(const SchoolScheduleApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('حصصي'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.add_rounded).first);
+    await tester.pumpAndSettle();
+
+    final fields = find.byType(TextField);
+    expect(fields, findsNWidgets(3));
+
+    await tester.enterText(fields.at(0), 'الرياضيات');
+    await tester.enterText(fields.at(1), 'الصف 8 / 2');
+
+    await tester.tap(find.text('حفظ الحصة'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('الرياضيات'), findsOneWidget);
+    expect(find.textContaining('لديك 1 حصة أسبوعيًا'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
