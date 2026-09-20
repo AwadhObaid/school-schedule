@@ -51,7 +51,7 @@ void main() {
     expect(parsed.backup?.schoolSchedule.ramadanMode, isTrue);
   });
 
-  test('older Phase 06 backup without appearance defaults to system', () {
+  test('older Phase 06 backup without appearance defaults to light', () {
     final backup = AppBackup(
       appVersion: '2.5.0+14',
       exportedAt: DateTime.utc(2026, 9, 20, 18, 0),
@@ -72,7 +72,7 @@ void main() {
     );
 
     expect(parsed.isValid, isTrue);
-    expect(parsed.backup?.appearance, AppAppearance.system);
+    expect(parsed.backup?.appearance, AppAppearance.light);
   });
 
   test('rejects a backup belonging to another format', () {
