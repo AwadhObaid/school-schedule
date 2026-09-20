@@ -69,6 +69,13 @@ void main() {
     await tester.tap(find.text('الجدول'));
     await tester.pumpAndSettle();
 
+    await tester.fling(
+      find.byType(ListView),
+      const Offset(0, -1400),
+      1500,
+    );
+    await tester.pumpAndSettle();
+
     expect(find.text('إدارة الجداول'), findsOneWidget);
     expect(find.text('جدول جديد'), findsOneWidget);
     expect(find.text('نسخ الحالي'), findsOneWidget);
