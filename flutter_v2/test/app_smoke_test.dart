@@ -133,12 +133,16 @@ void main() {
 
     await openSettings(tester);
 
-    await tester.fling(
-      find.byType(ListView),
-      const Offset(0, -850),
-      1200,
-    );
-    await tester.pumpAndSettle();
+    for (var attempt = 0;
+        attempt < 5 &&
+            find.text('تنبيهات الجدول المدرسي').evaluate().isEmpty;
+        attempt += 1) {
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+    }
 
     expect(find.text('تنبيهات الجدول المدرسي'), findsOneWidget);
     expect(find.text('اختبار تنبيهات الجدول الآن'), findsOneWidget);
