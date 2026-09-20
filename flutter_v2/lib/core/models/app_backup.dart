@@ -15,7 +15,7 @@ class AppBackup {
     required this.teacherClasses,
     required this.notificationSettings,
     required this.bellSettings,
-    this.appearance = AppAppearance.system,
+    this.appearance = AppAppearance.light,
     this.ringtoneName,
     this.ringtoneBase64,
   });
