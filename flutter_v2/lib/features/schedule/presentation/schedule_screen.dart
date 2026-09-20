@@ -92,7 +92,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   selectedId,
                   selectedProfile.name,
                 ),
-                onAddPeriod: () => _addPeriod(context, selectedId),
+                onAddPeriod: () => _addPeriod(selectedId),
                 onEditPeriod: (period) =>
                     _editPeriod(context, selectedId, period),
                 onDeletePeriod: (period) => _deletePeriod(
@@ -196,10 +196,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }
   }
 
-  Future<void> _addPeriod(
-    BuildContext context,
-    String profileId,
-  ) async {
+  Future<void> _addPeriod(String profileId) async {
     final value = await widget.controller.addSchoolPeriod(profileId);
     if (!mounted) return;
 
@@ -208,7 +205,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       return;
     }
 
-    await _editPeriod(context, profileId, value);
+    await _editPeriod(this.context, profileId, value);
   }
 
   Future<void> _editPeriod(
