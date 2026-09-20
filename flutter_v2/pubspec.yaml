@@ -1,10 +1,10 @@
 name: schedule
 description: Flutter V2 foundation for the School Schedule teacher assistant.
 publish_to: 'none'
-version: 2.1.1+10
+version: 2.2.0+11
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -13,6 +13,9 @@ dependencies:
     sdk: flutter
   intl: ^0.20.2
   shared_preferences: ^2.5.3
+  flutter_local_notifications: ^22.3.1
+  flutter_timezone: ^5.1.0
+  timezone: ^0.11.1
 
 dev_dependencies:
   flutter_test:
