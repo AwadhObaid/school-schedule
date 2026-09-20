@@ -151,14 +151,14 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF6EE),
+        color: Theme.of(context).colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD7EBDD)),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            backgroundColor: Colors.white,
+          CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.surface,
             child: Icon(Icons.school_rounded, color: AppTheme.primary),
           ),
           const SizedBox(width: 12),
@@ -245,13 +245,13 @@ class _WeeklyGrid extends StatelessWidget {
                         height: 58,
                         decoration: BoxDecoration(
                           color: active
-                              ? const Color(0xFFDDF1E4)
-                              : const Color(0xFFF3F5F6),
+                              ? Theme.of(context).colorScheme.primaryContainer
+                              : Theme.of(context).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: active
-                                ? const Color(0xFFB8DDC5)
-                                : const Color(0xFFE6E9EA),
+                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)
+                                : Theme.of(context).colorScheme.outlineVariant,
                           ),
                         ),
                         child: active
@@ -281,9 +281,9 @@ class _WeeklyGrid extends StatelessWidget {
                                   ),
                                 ],
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.add_rounded,
-                                color: Color(0xFF9AA3AD),
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                               ),
                       ),
                     ),

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule/core/app_controller.dart';
+import 'package:schedule/core/app_info.dart';
+import 'package:schedule/core/models/app_appearance.dart';
 import 'package:schedule/core/models/bell_settings.dart';
 import 'package:schedule/core/models/notification_settings.dart';
 import 'package:schedule/core/models/school_period.dart';
 import 'package:schedule/core/models/teacher_class.dart';
+import 'package:schedule/core/services/app_share_service.dart';
 import 'package:schedule/core/services/bell_audio_service.dart';
 import 'package:schedule/core/services/teacher_notification_scheduler.dart';
 import 'package:schedule/main.dart';
@@ -19,6 +22,7 @@ void main() {
     return AppController(
       notificationScheduler: _FakeNotificationScheduler(),
       bellAudioService: _FakeBellAudioService(),
+      appShareService: _FakeAppShareService(),
     );
   }
 
@@ -49,6 +53,43 @@ void main() {
     expect(find.text('الجدول'), findsOneWidget);
     expect(find.text('الإعدادات'), findsOneWidget);
     expect(find.text('ابدأ بإضافة حصصك'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('settings expose appearance, developer and share controls',
+      (tester) async {
+    final controller = createController();
+
+    await tester.pumpWidget(SchoolScheduleApp(controller: controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await openSettings(tester);
+
+    expect(find.text('المظهر'), findsOneWidget);
+    expect(find.text('النظام'), findsOneWidget);
+    expect(find.text('فاتح'), findsOneWidget);
+    expect(find.text('داكن'), findsOneWidget);
+
+    await controller.setAppearance(AppAppearance.dark);
+    await tester.pumpAndSettle();
+    expect(controller.appearance, AppAppearance.dark);
+
+    await tester.fling(
+      find.byType(ListView),
+      const Offset(0, -2200),
+      1500,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('حول التطبيق'), findsOneWidget);
+    expect(find.text(AppInfo.developerName), findsOneWidget);
+    expect(find.text('مشاركة التطبيق'), findsOneWidget);
+
+    await tester.tap(find.text('مشاركة التطبيق'));
+    await tester.pumpAndSettle();
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
@@ -179,5 +220,14 @@ class _FakeBellAudioService implements BellAudioService {
       uri: 'content://school.test/ringtones/restored',
       name: name,
     );
+  }
+}
+
+
+class _FakeAppShareService implements AppShareService {
+  @override
+  Future<bool> shareText(String text) async {
+    return text.contains(AppInfo.developerName) &&
+        text.contains(AppInfo.shareUrl);
   }
 }

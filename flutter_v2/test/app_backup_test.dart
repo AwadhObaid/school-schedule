@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:schedule/core/data/school_schedule_defaults.dart';
+import 'package:schedule/core/models/app_appearance.dart';
 import 'package:schedule/core/models/app_backup.dart';
 import 'package:schedule/core/models/bell_settings.dart';
 import 'package:schedule/core/models/notification_settings.dart';
@@ -8,7 +11,7 @@ import 'package:schedule/core/models/teacher_class.dart';
 void main() {
   test('Flutter V2 backup round-trips all core settings', () {
     final backup = AppBackup(
-      appVersion: '2.5.0+14',
+      appVersion: '2.6.0+15',
       exportedAt: DateTime.utc(2026, 9, 20, 18, 0),
       pin: '2468',
       schoolSchedule:
@@ -31,6 +34,7 @@ void main() {
         ringtoneName: 'bell.mp3',
         volume: 65,
       ),
+      appearance: AppAppearance.dark,
       ringtoneName: 'bell.mp3',
       ringtoneBase64: 'AQIDBA==',
     );
@@ -42,8 +46,33 @@ void main() {
     expect(parsed.backup?.teacherClasses, hasLength(1));
     expect(parsed.backup?.notificationSettings.enabled, isTrue);
     expect(parsed.backup?.bellSettings.volume, 65);
+    expect(parsed.backup?.appearance, AppAppearance.dark);
     expect(parsed.backup?.includesCustomRingtone, isTrue);
     expect(parsed.backup?.schoolSchedule.ramadanMode, isTrue);
+  });
+
+  test('older Phase 06 backup without appearance defaults to system', () {
+    final backup = AppBackup(
+      appVersion: '2.5.0+14',
+      exportedAt: DateTime.utc(2026, 9, 20, 18, 0),
+      pin: '0000',
+      schoolSchedule: SchoolScheduleDefaults.settings,
+      teacherClasses: const <TeacherClass>[],
+      notificationSettings: const NotificationSettings(),
+      bellSettings: const BellSettings(),
+    );
+
+    final map = backup.toJson();
+    final data = Map<String, dynamic>.from(map['data'] as Map);
+    data.remove('appearance');
+    map['data'] = data;
+
+    final parsed = AppBackup.parse(
+      const JsonEncoder.withIndent('  ').convert(map),
+    );
+
+    expect(parsed.isValid, isTrue);
+    expect(parsed.backup?.appearance, AppAppearance.system);
   });
 
   test('rejects a backup belonging to another format', () {

@@ -12,38 +12,83 @@ abstract final class AppTheme {
       surface: surface,
     );
 
+    return _build(
+      scheme: scheme,
+      scaffold: surface,
+    );
+  }
+
+  static ThemeData dark() {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: primary,
+      brightness: Brightness.dark,
+    );
+
+    return _build(
+      scheme: scheme,
+      scaffold: const Color(0xFF101512),
+    );
+  }
+
+  static ThemeData _build({
+    required ColorScheme scheme,
+    required Color scaffold,
+  }) {
+    final isDark = scheme.brightness == Brightness.dark;
+    final primaryText = scheme.onSurface;
+    final secondaryText = scheme.onSurfaceVariant;
+
     return ThemeData(
       useMaterial3: true,
+      brightness: scheme.brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: surface,
+      scaffoldBackgroundColor: scaffold,
       fontFamily: 'sans-serif',
-      textTheme: const TextTheme(
-        headlineMedium: TextStyle(fontWeight: FontWeight.w800, color: text),
-        titleLarge: TextStyle(fontWeight: FontWeight.w800, color: text),
-        titleMedium: TextStyle(fontWeight: FontWeight.w700, color: text),
-        bodyLarge: TextStyle(color: text),
-        bodyMedium: TextStyle(color: Color(0xFF5D6675)),
+      textTheme: TextTheme(
+        headlineMedium: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: primaryText,
+        ),
+        titleLarge: TextStyle(
+          fontWeight: FontWeight.w800,
+          color: primaryText,
+        ),
+        titleMedium: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: primaryText,
+        ),
+        bodyLarge: TextStyle(color: primaryText),
+        bodyMedium: TextStyle(color: secondaryText),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: CardThemeData(
         elevation: 0,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
+        color: isDark ? const Color(0xFF18201B) : scheme.surface,
+        shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(24)),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
-        indicatorColor: primary.withValues(alpha: 0.12),
+        backgroundColor: isDark ? const Color(0xFF151C18) : scheme.surface,
+        indicatorColor: primary.withValues(alpha: isDark ? 0.28 : 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           return TextStyle(
             fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w800
                 : FontWeight.w600,
             color: states.contains(WidgetState.selected)
-                ? primary
-                : const Color(0xFF536071),
+                ? (isDark ? const Color(0xFF8FDCAD) : primary)
+                : secondaryText,
           );
         }),
+      ),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant.withValues(alpha: 0.7),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: isDark,
+        fillColor: isDark ? const Color(0xFF131A16) : null,
       ),
     );
   }

@@ -1,17 +1,21 @@
 import 'package:flutter/foundation.dart';
 
+import 'app_info.dart';
 import 'data/school_schedule_defaults.dart';
+import 'models/app_appearance.dart';
 import 'models/app_backup.dart';
 import 'models/bell_settings.dart';
 import 'models/notification_settings.dart';
 import 'models/school_period.dart';
 import 'models/school_schedule_settings.dart';
 import 'models/teacher_class.dart';
+import 'services/app_share_service.dart';
 import 'services/backup_file_service.dart';
 import 'services/bell_audio_service.dart';
 import 'services/school_bell_engine.dart';
 import 'services/teacher_notification_scheduler.dart';
 import 'services/teacher_schedule_engine.dart';
+import 'storage/appearance_store.dart';
 import 'storage/bell_settings_store.dart';
 import 'storage/pin_store.dart';
 import 'storage/notification_settings_store.dart';
@@ -25,7 +29,9 @@ class AppController extends ChangeNotifier {
     NotificationSettingsStore? notificationSettingsStore,
     BellSettingsStore? bellSettingsStore,
     PinStore? pinStore,
+    AppearanceStore? appearanceStore,
     BackupFileService? backupFileService,
+    AppShareService? appShareService,
     TeacherNotificationScheduler? notificationScheduler,
     BellAudioService? bellAudioService,
     SchoolBellEngine? schoolBellEngine,
@@ -35,7 +41,9 @@ class AppController extends ChangeNotifier {
             notificationSettingsStore ?? NotificationSettingsStore(),
         _bellSettingsStore = bellSettingsStore ?? BellSettingsStore(),
         _pinStore = pinStore ?? PinStore(),
+        _appearanceStore = appearanceStore ?? AppearanceStore(),
         _backupFileService = backupFileService ?? MethodChannelBackupFileService(),
+        _appShareService = appShareService ?? MethodChannelAppShareService(),
         _notificationScheduler =
             notificationScheduler ?? LocalTeacherNotificationScheduler(),
         _bellAudioService =
@@ -47,7 +55,9 @@ class AppController extends ChangeNotifier {
   final NotificationSettingsStore _notificationSettingsStore;
   final BellSettingsStore _bellSettingsStore;
   final PinStore _pinStore;
+  final AppearanceStore _appearanceStore;
   final BackupFileService _backupFileService;
+  final AppShareService _appShareService;
   final TeacherNotificationScheduler _notificationScheduler;
   final BellAudioService _bellAudioService;
   final SchoolBellEngine _schoolBellEngine;
@@ -56,6 +66,7 @@ class AppController extends ChangeNotifier {
   SchoolScheduleSettings _schoolSchedule = SchoolScheduleDefaults.settings;
   NotificationSettings _notificationSettings = const NotificationSettings();
   BellSettings _bellSettings = const BellSettings();
+  AppAppearance _appearance = AppAppearance.system;
   String _settingsPin = PinStore.defaultPin;
 
   bool _initialized = false;
@@ -74,6 +85,7 @@ class AppController extends ChangeNotifier {
   SchoolScheduleSettings get schoolSchedule => _schoolSchedule;
   NotificationSettings get notificationSettings => _notificationSettings;
   BellSettings get bellSettings => _bellSettings;
+  AppAppearance get appearance => _appearance;
   bool get notificationBusy => _notificationBusy;
   bool get bellBusy => _bellBusy;
   bool get backupBusy => _backupBusy;
@@ -99,6 +111,7 @@ class AppController extends ChangeNotifier {
     _schoolSchedule = await _schoolScheduleStore.load();
     _notificationSettings = await _notificationSettingsStore.load();
     _bellSettings = await _bellSettingsStore.load();
+    _appearance = await _appearanceStore.load();
     _settingsPin = await _pinStore.load();
 
     await _notificationScheduler.initialize();
@@ -354,13 +367,14 @@ class AppController extends ChangeNotifier {
       }
 
       final backup = AppBackup(
-        appVersion: '2.5.0+14',
+        appVersion: AppInfo.version,
         exportedAt: DateTime.now(),
         pin: _settingsPin,
         schoolSchedule: _schoolSchedule,
         teacherClasses: _teacherClasses,
         notificationSettings: _notificationSettings,
         bellSettings: _bellSettings,
+        appearance: _appearance,
         ringtoneName: ringtone?.name,
         ringtoneBase64: ringtone?.base64,
       );
@@ -442,12 +456,14 @@ class AppController extends ChangeNotifier {
       _teacherClasses = List<TeacherClass>.unmodifiable(backup.teacherClasses);
       _notificationSettings = backup.notificationSettings;
       _bellSettings = restoredBell;
+      _appearance = backup.appearance;
       _settingsPin = backup.pin;
 
       await _schoolScheduleStore.save(_schoolSchedule);
       await _store.save(_teacherClasses);
       await _notificationSettingsStore.save(_notificationSettings);
       await _bellSettingsStore.save(_bellSettings);
+      await _appearanceStore.save(_appearance);
       await _pinStore.save(_settingsPin);
 
       await _configureBellChannel();
@@ -470,6 +486,17 @@ class AppController extends ChangeNotifier {
       _backupBusy = false;
       notifyListeners();
     }
+  }
+
+  Future<void> setAppearance(AppAppearance value) async {
+    if (_appearance == value) return;
+    _appearance = value;
+    await _appearanceStore.save(value);
+    notifyListeners();
+  }
+
+  Future<bool> shareApplication() async {
+    return _appShareService.shareText(AppInfo.shareText);
   }
 
   Future<bool> setNotificationSettings(NotificationSettings value) async {

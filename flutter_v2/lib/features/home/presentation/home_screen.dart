@@ -182,9 +182,9 @@ class _EmptyTeacherSchedule extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 34,
-              backgroundColor: Color(0xFFE6F4EB),
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               child: Icon(
                 Icons.school_rounded,
                 size: 34,
@@ -239,12 +239,17 @@ class _CurrentClassCard extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [Color(0xFFE6F4EB), Color(0xFFF8FCF9)],
+          colors: [
+            Theme.of(context).colorScheme.primaryContainer,
+            Theme.of(context).colorScheme.surfaceContainerLow,
+          ],
         ),
-        border: Border.all(color: const Color(0xFFD7EBDD)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outlineVariant,
+        ),
       ),
       child: Column(
         children: [
@@ -283,17 +288,17 @@ class _CurrentClassCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(22),
             ),
             child: Column(
               children: [
                 Text(
                   ArabicFormat.countdown(remaining),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 45,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0E5F39),
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 const Text('متبقي على نهاية الحصة'),
@@ -337,9 +342,9 @@ class _FreeStateCard extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: Column(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 28,
-              backgroundColor: Color(0xFFF1F5F2),
+              backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Icon(Icons.coffee_rounded, color: AppTheme.primary),
             ),
             const SizedBox(height: 14),
@@ -410,9 +415,9 @@ class _NextClassCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 25,
-              backgroundColor: Color(0xFFE6F4EB),
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               child: Icon(Icons.schedule_rounded, color: AppTheme.primary),
             ),
             const SizedBox(width: 14),
@@ -513,8 +518,8 @@ class _TodayScheduleCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 9),
                     decoration: BoxDecoration(
                       color: active
-                          ? const Color(0xFFDDF1E4)
-                          : const Color(0xFFF3F5F6),
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: Column(
@@ -532,8 +537,8 @@ class _TodayScheduleCard extends StatelessWidget {
                                   : Icons.remove_rounded,
                           size: active ? 14 : 18,
                           color: active || assignment != null
-                              ? AppTheme.primary
-                              : Colors.grey,
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ),
@@ -551,7 +556,7 @@ class _TodayScheduleCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: isCurrent
-                      ? const Color(0xFFF0F8F2)
+                      ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.55)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -578,7 +583,9 @@ class _TodayScheduleCard extends StatelessWidget {
                       item != null
                           ? Icons.check_circle_rounded
                           : Icons.remove_circle_outline_rounded,
-                      color: item != null ? AppTheme.primary : Colors.grey,
+                      color: item != null
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ],
                 ),

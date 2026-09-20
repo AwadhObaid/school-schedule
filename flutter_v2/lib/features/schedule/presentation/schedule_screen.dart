@@ -148,11 +148,13 @@ class _RamadanCard extends StatelessWidget {
         onChanged: onChanged,
         secondary: CircleAvatar(
           backgroundColor: enabled
-              ? const Color(0xFFE6F4EB)
-              : const Color(0xFFF1F3F4),
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Icon(
             Icons.nightlight_round,
-            color: enabled ? AppTheme.primary : Colors.grey,
+            color: enabled
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
         title: const Text(
@@ -318,7 +320,7 @@ class _ProfileEditorCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF6EE),
+                color: Theme.of(context).colorScheme.primaryContainer,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
@@ -358,15 +360,17 @@ class _PeriodRow extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
         backgroundColor: period.teacherSelectable
-            ? const Color(0xFFE6F4EB)
-            : const Color(0xFFF1F3F4),
+            ? Theme.of(context).colorScheme.primaryContainer
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
         child: Icon(
           period.teacherSelectable
               ? Icons.school_outlined
               : period.id == 'break'
                   ? Icons.free_breakfast_outlined
                   : Icons.groups_outlined,
-          color: period.teacherSelectable ? AppTheme.primary : Colors.grey,
+          color: period.teacherSelectable
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
       title: Text(

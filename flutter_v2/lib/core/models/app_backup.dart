@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'app_appearance.dart';
 import 'bell_settings.dart';
 import 'notification_settings.dart';
 import 'school_schedule_settings.dart';
@@ -14,6 +15,7 @@ class AppBackup {
     required this.teacherClasses,
     required this.notificationSettings,
     required this.bellSettings,
+    this.appearance = AppAppearance.system,
     this.ringtoneName,
     this.ringtoneBase64,
   });
@@ -28,6 +30,7 @@ class AppBackup {
   final List<TeacherClass> teacherClasses;
   final NotificationSettings notificationSettings;
   final BellSettings bellSettings;
+  final AppAppearance appearance;
   final String? ringtoneName;
   final String? ringtoneBase64;
 
@@ -47,6 +50,7 @@ class AppBackup {
             teacherClasses.map((item) => item.toJson()).toList(growable: false),
         'notificationSettings': notificationSettings.toJson(),
         'bellSettings': bellSettings.toJson(),
+        'appearance': appearance.storageValue,
         'ringtone': includesCustomRingtone
             ? {
                 'name': ringtoneName,
@@ -172,6 +176,10 @@ class AppBackup {
           ? BellSettings.fromJson(Map<String, dynamic>.from(rawBell))
           : const BellSettings();
 
+      final appearance = AppAppearance.fromStorage(
+        data['appearance']?.toString(),
+      );
+
       String? ringtoneName;
       String? ringtoneBase64;
       final rawRingtone = data['ringtone'];
@@ -211,6 +219,7 @@ class AppBackup {
           teacherClasses: List<TeacherClass>.unmodifiable(teacherClasses),
           notificationSettings: notificationSettings,
           bellSettings: bellSettings,
+          appearance: appearance,
           ringtoneName: ringtoneName,
           ringtoneBase64: ringtoneBase64,
         ),

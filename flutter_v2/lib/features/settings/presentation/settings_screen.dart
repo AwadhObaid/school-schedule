@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
+import '../../../core/app_info.dart';
+import '../../../core/models/app_appearance.dart';
 import '../../../core/models/app_backup.dart';
 import '../../../core/models/bell_settings.dart';
 import '../../../core/models/notification_settings.dart';
@@ -36,6 +38,11 @@ class SettingsScreen extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 18),
+            _AppearanceCard(
+              value: controller.appearance,
+              onChanged: controller.setAppearance,
+            ),
+            const SizedBox(height: 16),
             _BellCard(
               settings: controller.bellSettings,
               busy: controller.bellBusy,
@@ -77,9 +84,80 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _BackupSecurityCard(controller: controller),
+            const SizedBox(height: 16),
+            _AboutCard(controller: controller),
           ],
         );
       },
+    );
+  }
+}
+
+class _AppearanceCard extends StatelessWidget {
+  const _AppearanceCard({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final AppAppearance value;
+  final Future<void> Function(AppAppearance value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  child: Icon(Icons.dark_mode_outlined),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'المظهر',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            SegmentedButton<AppAppearance>(
+              segments: const [
+                ButtonSegment(
+                  value: AppAppearance.system,
+                  icon: Icon(Icons.phone_android_rounded),
+                  label: Text('النظام'),
+                ),
+                ButtonSegment(
+                  value: AppAppearance.light,
+                  icon: Icon(Icons.light_mode_outlined),
+                  label: Text('فاتح'),
+                ),
+                ButtonSegment(
+                  value: AppAppearance.dark,
+                  icon: Icon(Icons.dark_mode_outlined),
+                  label: Text('داكن'),
+                ),
+              ],
+              selected: <AppAppearance>{value},
+              onSelectionChanged: (selection) {
+                if (selection.isNotEmpty) {
+                  onChanged(selection.first);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'يحفظ التطبيق اختيارك ويطبقه تلقائيًا عند التشغيل التالي.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -141,13 +219,15 @@ class _BellCardState extends State<_BellCard> {
               onChanged: widget.busy ? null : widget.onEnabledChanged,
               secondary: CircleAvatar(
                 backgroundColor: settings.enabled
-                    ? const Color(0xFFE6F4EB)
-                    : const Color(0xFFF1F3F4),
+                    ? Theme.of(context).colorScheme.primaryContainer
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: Icon(
                   settings.enabled
                       ? Icons.notifications_active_rounded
                       : Icons.notifications_off_outlined,
-                  color: settings.enabled ? AppTheme.primary : Colors.grey,
+                  color: settings.enabled
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
               title: const Text(
@@ -242,7 +322,9 @@ class _BellCardState extends State<_BellCard> {
                   settings.enabled
                       ? Icons.check_circle_outline_rounded
                       : Icons.info_outline_rounded,
-                  color: settings.enabled ? AppTheme.primary : Colors.grey,
+                  color: settings.enabled
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -296,11 +378,11 @@ class _NotificationCard extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: settings.enabled,
               onChanged: busy ? null : onEnabledChanged,
-              secondary: const CircleAvatar(
-                backgroundColor: Color(0xFFE6F4EB),
+              secondary: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                 child: Icon(
                   Icons.notifications_active_rounded,
-                  color: AppTheme.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
               title: const Text(
@@ -366,7 +448,9 @@ class _NotificationCard extends StatelessWidget {
                   settings.enabled
                       ? Icons.check_circle_outline_rounded
                       : Icons.info_outline_rounded,
-                  color: settings.enabled ? AppTheme.primary : Colors.grey,
+                  color: settings.enabled
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -428,9 +512,12 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
           children: [
             Row(
               children: [
-                const CircleAvatar(
-                  backgroundColor: Color(0xFFE6F4EB),
-                  child: Icon(Icons.security_rounded, color: AppTheme.primary),
+                CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.security_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -623,6 +710,79 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
   void _message(String text) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text)),
+    );
+  }
+}
+
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  child: Icon(Icons.info_outline_rounded),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'حول التطبيق',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.person_outline_rounded),
+              title: Text('المطور'),
+              subtitle: Text(
+                AppInfo.developerName,
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.apps_rounded),
+              title: Text(AppInfo.appName),
+              subtitle: Text('الإصدار ${AppInfo.version}'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.tonalIcon(
+              onPressed: () async {
+                final shared = await controller.shareApplication();
+                if (!context.mounted || shared) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('تعذر فتح نافذة مشاركة التطبيق.'),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.share_rounded),
+              label: const Text('مشاركة التطبيق'),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'رابط المشاركة الحالي يفتح صفحة المشروع على GitHub، وسيُستبدل بالرابط المباشر للإصدار المستقر عند النشر النهائي.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
