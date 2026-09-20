@@ -10,3 +10,12 @@ android/captures/
 /android/android/
 /www/www/
 /.github/.github/
+
+
+# Flutter V2 stable release outputs and signing material
+stable_release/
+*.jks
+*.keystore
+*.p12
+*.pfx
+key.properties
