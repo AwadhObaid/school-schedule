@@ -228,7 +228,7 @@ class _ComingLaterCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'نغمة الجرس، مستوى الصوت، دوام رمضان، النسخ الاحتياطي ورمز الدخول ستُنقل تدريجيًا مع الحفاظ على سلوك النسخة الحالية.',
+                    'نغمة الجرس، مستوى الصوت، النسخ الاحتياطي ورمز الدخول ستُنقل تدريجيًا مع الحفاظ على سلوك النسخة الحالية.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],

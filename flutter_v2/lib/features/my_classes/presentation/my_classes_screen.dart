@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
-import '../../../core/data/school_schedule_defaults.dart';
 import '../../../core/models/school_period.dart';
 import '../../../core/models/teacher_class.dart';
 import '../../../core/theme/app_theme.dart';
@@ -196,7 +195,7 @@ class _WeeklyGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const periods = SchoolScheduleDefaults.normalTeachingPeriods;
+    final periods = controller.teacherPeriodCatalog;
 
     return Column(
       children: [
