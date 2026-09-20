@@ -8,7 +8,7 @@ enum AppAppearance {
   static AppAppearance fromStorage(String? value) {
     return AppAppearance.values.firstWhere(
       (item) => item.storageValue == value,
-      orElse: () => AppAppearance.system,
+      orElse: () => AppAppearance.light,
     );
   }
 }
