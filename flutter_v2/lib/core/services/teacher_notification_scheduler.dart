@@ -28,11 +28,12 @@ abstract class TeacherNotificationScheduler {
     required List<TeacherClass> assignments,
     required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
+    String? androidChannelId,
   });
 
   Future<void> cancelTeacherNotifications();
 
-  Future<void> showTestNotification();
+  Future<void> showTestNotification({String? androidChannelId});
 }
 
 class LocalTeacherNotificationScheduler
@@ -146,6 +147,7 @@ class LocalTeacherNotificationScheduler
     required List<TeacherClass> assignments,
     required Map<int, List<SchoolPeriod>> periodsByWeekday,
     required NotificationSettings settings,
+    String? androidChannelId,
   }) async {
     await initialize();
 
@@ -163,9 +165,13 @@ class LocalTeacherNotificationScheduler
           ? AndroidScheduleMode.exactAllowWhileIdle
           : AndroidScheduleMode.inexactAllowWhileIdle;
 
-      const details = NotificationDetails(
+      final channelId = (androidChannelId ?? '').trim().isEmpty
+          ? _channelId
+          : androidChannelId!.trim();
+
+      final details = NotificationDetails(
         android: AndroidNotificationDetails(
-          _channelId,
+          channelId,
           _channelName,
           channelDescription: _channelDescription,
           importance: Importance.high,
@@ -215,7 +221,7 @@ class LocalTeacherNotificationScheduler
   }
 
   @override
-  Future<void> showTestNotification() async {
+  Future<void> showTestNotification({String? androidChannelId}) async {
     await initialize();
 
     try {
@@ -223,9 +229,11 @@ class LocalTeacherNotificationScheduler
         id: 399999,
         title: 'اختبار تنبيهات حصصي',
         body: 'التنبيهات تعمل بنجاح على هذا الجهاز.',
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            _channelId,
+            (androidChannelId ?? '').trim().isEmpty
+                ? _channelId
+                : androidChannelId!.trim(),
             _channelName,
             channelDescription: _channelDescription,
             importance: Importance.high,
