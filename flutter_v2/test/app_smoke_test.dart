@@ -58,6 +58,26 @@ void main() {
     controller.dispose();
   });
 
+  testWidgets('schedule screen exposes custom schedule controls',
+      (tester) async {
+    final controller = createController();
+
+    await tester.pumpWidget(SchoolScheduleApp(controller: controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await tester.tap(find.text('الجدول'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('إدارة الجداول'), findsOneWidget);
+    expect(find.text('جدول جديد'), findsOneWidget);
+    expect(find.text('نسخ الحالي'), findsOneWidget);
+    expect(find.text('إضافة فترة'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
   testWidgets('settings expose appearance, developer and share controls',
       (tester) async {
     final controller = createController();

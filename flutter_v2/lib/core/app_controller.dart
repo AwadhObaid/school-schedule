@@ -195,6 +195,161 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isBuiltInProfile(String profileId) {
+    return profileId == SchoolScheduleSettings.normalProfileId ||
+        profileId == SchoolScheduleSettings.ramadanProfileId;
+  }
+
+  Future<String> createScheduleProfile({
+    required String name,
+    String? sourceProfileId,
+  }) async {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) {
+      throw ArgumentError('Schedule name cannot be empty.');
+    }
+
+    var suffix = DateTime.now().millisecondsSinceEpoch;
+    var id = 'custom_$suffix';
+    while (_schoolSchedule.profiles.containsKey(id)) {
+      suffix += 1;
+      id = 'custom_$suffix';
+    }
+
+    final source = sourceProfileId == null
+        ? null
+        : _schoolSchedule.profiles[sourceProfileId];
+
+    final profile = SchoolScheduleProfile(
+      id: id,
+      name: cleanName,
+      periods: List<SchoolPeriod>.unmodifiable(
+        source == null ? const <SchoolPeriod>[] : List.of(source.periods),
+      ),
+    );
+
+    _schoolSchedule = _schoolSchedule.copyWith(
+      profiles: <String, SchoolScheduleProfile>{
+        ..._schoolSchedule.profiles,
+        id: profile,
+      },
+    );
+
+    await _persistSchoolSchedule();
+    return id;
+  }
+
+  Future<bool> renameScheduleProfile(
+    String profileId,
+    String name,
+  ) async {
+    final profile = _schoolSchedule.profiles[profileId];
+    final cleanName = name.trim();
+
+    if (profile == null || cleanName.isEmpty || isBuiltInProfile(profileId)) {
+      return false;
+    }
+
+    _schoolSchedule = _schoolSchedule.copyWith(
+      profiles: <String, SchoolScheduleProfile>{
+        ..._schoolSchedule.profiles,
+        profileId: profile.copyWith(name: cleanName),
+      },
+    );
+
+    await _persistSchoolSchedule();
+    return true;
+  }
+
+  Future<bool> deleteScheduleProfile(String profileId) async {
+    if (isBuiltInProfile(profileId) ||
+        !_schoolSchedule.profiles.containsKey(profileId)) {
+      return false;
+    }
+
+    final profiles = <String, SchoolScheduleProfile>{
+      ..._schoolSchedule.profiles,
+    }..remove(profileId);
+
+    final weekdayMap = <int, String>{
+      for (final entry in _schoolSchedule.weekdayMap.entries)
+        entry.key: entry.value == profileId
+            ? SchoolScheduleSettings.offProfileId
+            : entry.value,
+    };
+
+    _schoolSchedule = _schoolSchedule.copyWith(
+      profiles: profiles,
+      weekdayMap: weekdayMap,
+    );
+
+    await _persistSchoolSchedule();
+    return true;
+  }
+
+  Future<SchoolPeriod?> addSchoolPeriod(String profileId) async {
+    final profile = _schoolSchedule.profiles[profileId];
+    if (profile == null) return null;
+
+    final periods = List<SchoolPeriod>.from(profile.periods);
+    final nextNumber = _nextTeacherPeriodNumber(profileId);
+    final lastEnd = periods.isEmpty
+        ? 8 * 60
+        : periods.map((item) => item.endMinutes).reduce(
+              (left, right) => left > right ? left : right,
+            );
+
+    if (lastEnd + 35 > 24 * 60) return null;
+
+    final value = SchoolPeriod(
+      id: 'p$nextNumber',
+      name: 'الحصة $nextNumber',
+      startMinutes: lastEnd,
+      durationMinutes: 35,
+    );
+
+    periods.add(value);
+    periods.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+    _schoolSchedule = _schoolSchedule.copyWith(
+      profiles: <String, SchoolScheduleProfile>{
+        ..._schoolSchedule.profiles,
+        profileId: profile.copyWith(
+          periods: List<SchoolPeriod>.unmodifiable(periods),
+        ),
+      },
+    );
+
+    await _persistSchoolSchedule();
+    return value;
+  }
+
+  Future<bool> removeSchoolPeriod(
+    String profileId,
+    String periodId,
+  ) async {
+    final profile = _schoolSchedule.profiles[profileId];
+    if (profile == null) return false;
+
+    final periods = profile.periods
+        .where((item) => item.id != periodId)
+        .toList(growable: false);
+
+    if (periods.length == profile.periods.length) return false;
+
+    _schoolSchedule = _schoolSchedule.copyWith(
+      profiles: <String, SchoolScheduleProfile>{
+        ..._schoolSchedule.profiles,
+        profileId: profile.copyWith(
+          periods: List<SchoolPeriod>.unmodifiable(periods),
+        ),
+      },
+    );
+
+    await _persistSchoolSchedule();
+    return true;
+  }
+
   Future<void> setRamadanMode(bool enabled) async {
     _schoolSchedule = _schoolSchedule.copyWith(ramadanMode: enabled);
     await _persistSchoolSchedule();
@@ -214,18 +369,21 @@ class AppController extends ChangeNotifier {
     await _persistSchoolSchedule();
   }
 
-  Future<void> updateSchoolPeriod(
+  Future<bool> updateSchoolPeriod(
     String profileId,
     SchoolPeriod value,
   ) async {
     final profile = _schoolSchedule.profiles[profileId];
-    if (profile == null) return;
+    if (profile == null) return false;
 
     final periods = List<SchoolPeriod>.from(profile.periods);
     final index = periods.indexWhere((item) => item.id == value.id);
-    if (index < 0) return;
+    if (index < 0) return false;
 
     periods[index] = value;
+    periods.sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+    if (!_periodsAreValid(periods)) return false;
 
     final profiles = <String, SchoolScheduleProfile>{
       ..._schoolSchedule.profiles,
@@ -236,6 +394,7 @@ class AppController extends ChangeNotifier {
 
     _schoolSchedule = _schoolSchedule.copyWith(profiles: profiles);
     await _persistSchoolSchedule();
+    return true;
   }
 
   Future<void> resetSchoolSchedule() async {
@@ -597,6 +756,46 @@ class AppController extends ChangeNotifier {
       settings: _notificationSettings,
       androidChannelId: _bellNotificationChannelId,
     );
+  }
+
+  int _nextTeacherPeriodNumber(String profileId) {
+    final profile = _schoolSchedule.profiles[profileId];
+    if (profile == null) return 1;
+
+    final used = <int>{};
+    for (final period in profile.teachingPeriods) {
+      final digits = period.id.replaceAll(RegExp('[^0-9]'), '');
+      final number = int.tryParse(digits) ?? 0;
+      if (number > 0) used.add(number);
+    }
+
+    var candidate = 1;
+    while (used.contains(candidate)) {
+      candidate += 1;
+    }
+    return candidate;
+  }
+
+  bool _periodsAreValid(List<SchoolPeriod> periods) {
+    if (periods.isEmpty) return true;
+
+    SchoolPeriod? previous;
+    for (final period in periods) {
+      if (period.startMinutes < 0 ||
+          period.startMinutes >= 24 * 60 ||
+          period.durationMinutes <= 0 ||
+          period.durationMinutes > 600 ||
+          period.endMinutes > 24 * 60) {
+        return false;
+      }
+
+      if (previous != null && period.startMinutes < previous.endMinutes) {
+        return false;
+      }
+      previous = period;
+    }
+
+    return true;
   }
 
   static int _periodOrder(String periodId) {

@@ -207,7 +207,7 @@ class _WeeklyGrid extends StatelessWidget {
                 width: 62,
                 child: Center(
                   child: Text(
-                    period.id.substring(1),
+                    _periodLabel(period),
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -217,6 +217,11 @@ class _WeeklyGrid extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         ..._days.map((day) {
+          final dayPeriods = <String, SchoolPeriod>{
+            for (final item in controller.teachingPeriodsForWeekday(day.$1))
+              item.id: item,
+          };
+
           return Padding(
             padding: const EdgeInsets.only(bottom: 7),
             child: Row(
@@ -229,62 +234,86 @@ class _WeeklyGrid extends StatelessWidget {
                   ),
                 ),
                 ...periods.map((period) {
-                  final assignment = controller.assignmentFor(
-                    day.$1,
-                    period.id,
-                  );
+                  final actualPeriod = dayPeriods[period.id];
+                  final assignment = actualPeriod == null
+                      ? null
+                      : controller.assignmentFor(day.$1, actualPeriod.id);
                   final active = assignment != null;
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => onEdit(day.$1, period),
+                      onTap: actualPeriod == null
+                          ? null
+                          : () => onEdit(day.$1, actualPeriod),
                       child: Ink(
                         width: 56,
                         height: 58,
                         decoration: BoxDecoration(
-                          color: active
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.surfaceContainerHighest,
+                          color: actualPeriod == null
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerLow
+                              : active
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: active
-                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.35)
                                 : Theme.of(context).colorScheme.outlineVariant,
                           ),
                         ),
-                        child: active
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_rounded,
-                                    size: 18,
-                                    color: AppTheme.primary,
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 3,
-                                    ),
-                                    child: Text(
-                                      assignment.subject,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
+                        child: actualPeriod == null
+                            ? Icon(
+                                Icons.block_rounded,
+                                size: 17,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.45),
+                              )
+                            : active
+                                ? Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 18,
                                         color: AppTheme.primary,
                                       ),
-                                    ),
+                                      const SizedBox(height: 3),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 3,
+                                        ),
+                                        child: Text(
+                                          assignment.subject,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Icon(
+                                    Icons.add_rounded,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
                                   ),
-                                ],
-                              )
-                            : Icon(
-                                Icons.add_rounded,
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
                       ),
                     ),
                   );
@@ -296,9 +325,17 @@ class _WeeklyGrid extends StatelessWidget {
       ],
     );
   }
+
+  static String _periodLabel(SchoolPeriod period) {
+    if (period.id.startsWith('p')) {
+      final number = period.id.substring(1);
+      if (number.isNotEmpty) return number;
+    }
+    return period.name.length <= 2
+        ? period.name
+        : period.name.substring(0, 2);
+  }
 }
-
-
 
 class _ClassEditorSheet extends StatefulWidget {
   const _ClassEditorSheet({
