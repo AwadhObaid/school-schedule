@@ -183,10 +183,10 @@ foreach ($name in $signingVars) {
 
     if ($present) {
         Ok "$name is available."
-        $report.Add("$name: PRESENT")
+        $report.Add("${name}: PRESENT")
     } else {
         Warn "$name is missing or invalid."
-        $report.Add("$name: MISSING")
+        $report.Add("${name}: MISSING")
     }
 }
 
