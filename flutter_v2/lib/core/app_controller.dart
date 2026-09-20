@@ -4,6 +4,7 @@ import 'app_info.dart';
 import 'data/school_schedule_defaults.dart';
 import 'models/app_appearance.dart';
 import 'models/app_backup.dart';
+import 'models/app_update.dart';
 import 'models/bell_settings.dart';
 import 'models/notification_settings.dart';
 import 'models/school_notification_settings.dart';
@@ -11,6 +12,7 @@ import 'models/school_period.dart';
 import 'models/school_schedule_settings.dart';
 import 'models/teacher_class.dart';
 import 'services/app_share_service.dart';
+import 'services/app_update_service.dart';
 import 'services/backup_file_service.dart';
 import 'services/bell_audio_service.dart';
 import 'services/legacy_backup_migration.dart';
@@ -37,6 +39,7 @@ class AppController extends ChangeNotifier {
     AppearanceStore? appearanceStore,
     BackupFileService? backupFileService,
     AppShareService? appShareService,
+    AppUpdateService? appUpdateService,
     TeacherNotificationScheduler? notificationScheduler,
     BellAudioService? bellAudioService,
     SchoolBellEngine? schoolBellEngine,
@@ -52,6 +55,7 @@ class AppController extends ChangeNotifier {
         _appearanceStore = appearanceStore ?? AppearanceStore(),
         _backupFileService = backupFileService ?? MethodChannelBackupFileService(),
         _appShareService = appShareService ?? MethodChannelAppShareService(),
+        _appUpdateService = appUpdateService ?? AppUpdateService(),
         _notificationScheduler =
             notificationScheduler ?? LocalTeacherNotificationScheduler(),
         _bellAudioService =
@@ -67,6 +71,7 @@ class AppController extends ChangeNotifier {
   final AppearanceStore _appearanceStore;
   final BackupFileService _backupFileService;
   final AppShareService _appShareService;
+  final AppUpdateService _appUpdateService;
   final TeacherNotificationScheduler _notificationScheduler;
   final BellAudioService _bellAudioService;
   final SchoolBellEngine _schoolBellEngine;
@@ -85,10 +90,12 @@ class AppController extends ChangeNotifier {
   bool _schoolNotificationBusy = false;
   bool _bellBusy = false;
   bool _backupBusy = false;
+  bool _updateBusy = false;
   String _notificationStatus = 'التنبيهات غير مفعلة';
   String _schoolNotificationStatus = 'تنبيهات الجدول المدرسي غير مفعلة';
   String _bellStatus = 'صوت الجرس غير مفعل';
   String _backupStatus = 'لم يتم إنشاء نسخة احتياطية في هذه الجلسة';
+  String _updateStatus = 'لم يتم التحقق من التحديثات بعد';
   String? _bellNotificationChannelId;
 
   bool get initialized => _initialized;
@@ -105,10 +112,12 @@ class AppController extends ChangeNotifier {
   bool get schoolNotificationBusy => _schoolNotificationBusy;
   bool get bellBusy => _bellBusy;
   bool get backupBusy => _backupBusy;
+  bool get updateBusy => _updateBusy;
   String get notificationStatus => _notificationStatus;
   String get schoolNotificationStatus => _schoolNotificationStatus;
   String get bellStatus => _bellStatus;
   String get backupStatus => _backupStatus;
+  String get updateStatus => _updateStatus;
 
   List<SchoolPeriod> get teacherPeriodCatalog {
     final byId = <String, SchoolPeriod>{};
@@ -684,6 +693,46 @@ class AppController extends ChangeNotifier {
 
   Future<bool> shareApplication() async {
     return _appShareService.shareText(AppInfo.shareText);
+  }
+
+  Future<AppUpdateCheckResult> checkForUpdates({
+    bool silent = false,
+    bool respectIgnored = true,
+  }) async {
+    if (_updateBusy) {
+      return AppUpdateCheckResult(
+        status: AppUpdateStatus.unavailable,
+        message: _updateStatus,
+      );
+    }
+
+    _updateBusy = true;
+    if (!silent) {
+      _updateStatus = 'جارٍ التحقق من التحديثات...';
+      notifyListeners();
+    }
+
+    try {
+      final result = await _appUpdateService.check(
+        currentVersion: AppInfo.version,
+        respectIgnored: respectIgnored,
+      );
+      _updateStatus = result.message;
+      return result;
+    } finally {
+      _updateBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> ignoreUpdate(AppUpdateInfo update) async {
+    await _appUpdateService.ignore(update);
+    _updateStatus = 'تم تجاهل الإصدار ${update.version}.';
+    notifyListeners();
+  }
+
+  Future<bool> openUpdate(AppUpdateInfo update) {
+    return _appUpdateService.openUpdate(update);
   }
 
   Future<LegacyMigrationParseResult?> pickLegacyBackup() async {

@@ -107,11 +107,13 @@ void main() {
 
     await tester.fling(
       find.byType(ListView),
-      const Offset(0, -2200),
-      1500,
+      const Offset(0, -3200),
+      1700,
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('التحديثات'), findsOneWidget);
+    expect(find.text('التحقق من التحديثات'), findsOneWidget);
     expect(find.text('حول التطبيق'), findsOneWidget);
     expect(find.text(AppInfo.developerName), findsOneWidget);
     expect(find.text('مشاركة التطبيق'), findsOneWidget);

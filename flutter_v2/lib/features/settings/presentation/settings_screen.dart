@@ -9,6 +9,7 @@ import '../../../core/models/notification_settings.dart';
 import '../../../core/models/school_notification_settings.dart';
 import '../../../core/services/legacy_backup_migration.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../update/presentation/update_dialog.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -100,6 +101,8 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _BackupSecurityCard(controller: controller),
+            const SizedBox(height: 16),
+            _UpdateCard(controller: controller),
             const SizedBox(height: 16),
             _AboutCard(controller: controller),
           ],
@@ -882,6 +885,96 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
   }
 }
 
+
+class _UpdateCard extends StatelessWidget {
+  const _UpdateCard({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const CircleAvatar(
+                  child: Icon(Icons.system_update_alt_rounded),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'التحديثات',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.verified_outlined),
+              title: Text('الإصدار الحالي'),
+              subtitle: Text(
+                AppInfo.version,
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(height: 4),
+            FilledButton.tonalIcon(
+              onPressed: controller.updateBusy
+                  ? null
+                  : () async {
+                      final result = await controller.checkForUpdates(
+                        silent: false,
+                        respectIgnored: false,
+                      );
+
+                      if (!context.mounted) return;
+
+                      if (result.hasUpdate) {
+                        await showAppUpdateDialog(
+                          context,
+                          controller: controller,
+                          update: result.update!,
+                        );
+                        return;
+                      }
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(result.message)),
+                      );
+                    },
+              icon: controller.updateBusy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
+              label: const Text('التحقق من التحديثات'),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              controller.updateStatus,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'يتم التحقق من أحدث إصدار منشور في GitHub Releases. إذا احتوى الإصدار على ملف APK سيفتح زر التحديث رابط التنزيل مباشرة.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _AboutCard extends StatelessWidget {
   const _AboutCard({
