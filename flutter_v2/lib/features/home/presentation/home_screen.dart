@@ -442,7 +442,7 @@ class _TodayScheduleCard extends StatelessWidget {
     final byPeriod = {
       for (final item in timeline.today) item.period.id: item,
     };
-    final periods = SchoolScheduleDefaults.normalTeachingPeriods;
+    const periods = SchoolScheduleDefaults.normalTeachingPeriods;
 
     return Card(
       child: Padding(
