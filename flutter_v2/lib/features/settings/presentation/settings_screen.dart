@@ -574,7 +574,8 @@ class _BackupSecurityCardState extends State<_BackupSecurityCard> {
   Future<void> _restoreBackup() async {
     final result = await widget.controller.pickBackup();
     if (!mounted || result == null || !result.isValid) {
-      if (result?.error != null) _message(result!.error!);
+      final error = result?.error;
+      if (error != null) _message(error);
       return;
     }
 
