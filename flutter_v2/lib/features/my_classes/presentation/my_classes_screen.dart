@@ -159,7 +159,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           CircleAvatar(
             backgroundColor: Theme.of(context).colorScheme.surface,
-            child: Icon(Icons.school_rounded, color: AppTheme.primary),
+            child: const Icon(Icons.school_rounded, color: AppTheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(
