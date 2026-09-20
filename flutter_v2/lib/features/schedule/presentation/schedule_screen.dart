@@ -9,7 +9,7 @@ class ScheduleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final periods = SchoolScheduleDefaults.normalTeachingPeriods;
+    const periods = SchoolScheduleDefaults.normalTeachingPeriods;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 32),
