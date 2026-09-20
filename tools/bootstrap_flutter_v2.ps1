@@ -22,6 +22,21 @@ function Get-ArabicAppLabel {
     return -join ($codePoints | ForEach-Object { [char]$_ })
 }
 
+function Ensure-WindowsKotlinCrossDriveFix {
+    if ($env:OS -ne 'Windows_NT') { return }
+
+    $gradleProps = Join-Path $FlutterRoot 'android\gradle.properties'
+    if (-not (Test-Path $gradleProps)) { return }
+
+    Step 'Applying Windows Kotlin cross-drive build compatibility'
+    $lines = @(Get-Content $gradleProps -ErrorAction Stop)
+    $lines = @($lines | Where-Object { $_ -notmatch '^\s*kotlin\.incremental\s*=' })
+    $lines += 'kotlin.incremental=false'
+
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines($gradleProps, $lines, $utf8NoBom)
+}
+
 Step 'Checking Flutter SDK'
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw 'Flutter was not found in PATH.'
@@ -54,6 +69,8 @@ try {
     else {
         Step 'Android Flutter scaffold already exists; keeping it'
     }
+
+    Ensure-WindowsKotlinCrossDriveFix
 
     Push-Location $FlutterRoot
     try {
