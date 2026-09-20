@@ -10,7 +10,7 @@ Add final user-facing identity and convenience features requested after Phase 06
 - Theme preference persists locally.
 - Dark Material 3 theme with adjusted cards, navigation, text, schedule highlights and teacher-class grids.
 - Appearance preference is included in Flutter V2 backup files.
-- Older Phase 06 backups that do not contain an appearance field restore safely using System mode.
+- Older Phase 06 backups that do not contain an appearance field restore safely using Light mode to preserve the previous UI.
 - Native Android share sheet for sharing the application.
 - Sharing text contains the application name, developer name and public project link.
 
