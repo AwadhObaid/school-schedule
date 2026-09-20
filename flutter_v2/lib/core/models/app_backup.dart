@@ -188,7 +188,7 @@ class AppBackup {
                 'ملف النغمة داخل النسخة أكبر من الحد المسموح.',
               );
             }
-            base64Decode(ringtoneBase64!);
+            base64Decode(ringtoneBase64);
           } catch (_) {
             return const BackupParseResult.failure(
               'بيانات ملف النغمة داخل النسخة غير صالحة.',
