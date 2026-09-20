@@ -40,7 +40,7 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
       _initialization = Future.wait<void>([
         _controller.initialize(),
         Future<void>.delayed(const Duration(milliseconds: 1400)),
-      ]);
+      ]).then((_) {});
     } else {
       _initialization = _controller.initialize();
     }
