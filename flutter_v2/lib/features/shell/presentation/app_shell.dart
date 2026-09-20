@@ -36,7 +36,7 @@ class _AppShellState extends State<AppShell> {
       ),
       MyClassesScreen(controller: widget.controller),
       const ScheduleScreen(),
-      const SettingsScreen(),
+      SettingsScreen(controller: widget.controller),
     ];
 
     return Scaffold(
