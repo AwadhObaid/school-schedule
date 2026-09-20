@@ -232,7 +232,7 @@ abstract final class LegacyBackupMigration {
       );
     }
 
-    final defaults = SchoolScheduleDefaults.settings;
+    const defaults = SchoolScheduleDefaults.settings;
     profiles.putIfAbsent(
       SchoolScheduleSettings.normalProfileId,
       () => defaults.profiles[SchoolScheduleSettings.normalProfileId]!,
