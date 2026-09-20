@@ -25,73 +25,18 @@ class _AppShellState extends State<AppShell> {
     if (_index == index) return;
 
     if (index == 3) {
-      final allowed = await _requestSettingsPin();
-      if (!allowed || !mounted) return;
+      final allowed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _SettingsPinDialog(
+          controller: widget.controller,
+        ),
+      );
+
+      if (!mounted || allowed != true) return;
     }
 
     setState(() => _index = index);
-  }
-
-  Future<bool> _requestSettingsPin() async {
-    final pinController = TextEditingController();
-
-    final allowed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        String? errorText;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> submit() async {
-              final valid = widget.controller.verifySettingsPin(
-                pinController.text.trim(),
-              );
-
-              if (valid) {
-                Navigator.pop(dialogContext, true);
-                return;
-              }
-
-              setDialogState(() {
-                errorText = 'رمز الدخول غير صحيح';
-              });
-            }
-
-            return AlertDialog(
-              title: const Text('دخول الإعدادات'),
-              content: TextField(
-                controller: pinController,
-                autofocus: true,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 12,
-                onSubmitted: (_) => submit(),
-                decoration: InputDecoration(
-                  labelText: 'رمز الدخول',
-                  hintText: 'الافتراضي: 0000',
-                  errorText: errorText,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext, false),
-                  child: const Text('إلغاء'),
-                ),
-                FilledButton(
-                  onPressed: submit,
-                  child: const Text('دخول'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    pinController.dispose();
-    return allowed == true;
   }
 
   @override
@@ -99,8 +44,12 @@ class _AppShellState extends State<AppShell> {
     final pages = <Widget>[
       HomeScreen(
         controller: widget.controller,
-        onOpenMyClasses: () => _select(1),
-        onOpenSettings: () { _select(3); },
+        onOpenMyClasses: () {
+          _select(1);
+        },
+        onOpenSettings: () {
+          _select(3);
+        },
       ),
       MyClassesScreen(controller: widget.controller),
       ScheduleScreen(controller: widget.controller),
@@ -116,7 +65,9 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (index) { _select(index); },
+        onDestinationSelected: (index) {
+          _select(index);
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -141,5 +92,73 @@ class _AppShellState extends State<AppShell> {
         ],
       ),
     );
+  }
+}
+
+class _SettingsPinDialog extends StatefulWidget {
+  const _SettingsPinDialog({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
+  State<_SettingsPinDialog> createState() => _SettingsPinDialogState();
+}
+
+class _SettingsPinDialogState extends State<_SettingsPinDialog> {
+  final _pinController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('دخول الإعدادات'),
+      content: TextField(
+        controller: _pinController,
+        autofocus: true,
+        obscureText: true,
+        keyboardType: TextInputType.number,
+        maxLength: 12,
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          labelText: 'رمز الدخول',
+          hintText: 'الافتراضي أول مرة: 0000',
+          errorText: _errorText,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('إلغاء'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('دخول'),
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final valid = widget.controller.verifySettingsPin(
+      _pinController.text.trim(),
+    );
+
+    if (valid) {
+      Navigator.pop(context, true);
+      return;
+    }
+
+    setState(() {
+      _errorText = 'رمز الدخول غير صحيح';
+    });
   }
 }
