@@ -57,6 +57,9 @@ void main() {
           'assets': <Object>[],
         }),
         200,
+        headers: const {
+          'content-type': 'application/json; charset=utf-8',
+        },
       );
     });
 
@@ -93,6 +96,9 @@ void main() {
           'assets': <Object>[],
         }),
         200,
+        headers: const {
+          'content-type': 'application/json; charset=utf-8',
+        },
       );
     });
 
