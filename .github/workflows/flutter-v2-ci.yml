@@ -3,7 +3,7 @@ name: Flutter V2 CI
 on:
   push:
     branches:
-      - flutter-v2-phase01-foundation
+      - 'flutter-v2-*'
     paths:
       - 'flutter_v2/**'
       - '.github/workflows/flutter-v2-ci.yml'
