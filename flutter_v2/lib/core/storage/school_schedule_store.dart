@@ -45,7 +45,7 @@ class SchoolScheduleStore {
   static SchoolScheduleSettings _mergeWithDefaults(
     SchoolScheduleSettings loaded,
   ) {
-    final defaults = SchoolScheduleDefaults.settings;
+    const defaults = SchoolScheduleDefaults.settings;
 
     final profiles = <String, SchoolScheduleProfile>{
       ...defaults.profiles,
