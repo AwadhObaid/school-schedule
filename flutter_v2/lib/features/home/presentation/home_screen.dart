@@ -185,7 +185,7 @@ class _EmptyTeacherSchedule extends StatelessWidget {
             CircleAvatar(
               radius: 34,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(
+              child: const Icon(
                 Icons.school_rounded,
                 size: 34,
                 color: AppTheme.primary,
@@ -345,7 +345,7 @@ class _FreeStateCard extends StatelessWidget {
             CircleAvatar(
               radius: 28,
               backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-              child: Icon(Icons.coffee_rounded, color: AppTheme.primary),
+              child: const Icon(Icons.coffee_rounded, color: AppTheme.primary),
             ),
             const SizedBox(height: 14),
             Text(
@@ -418,7 +418,7 @@ class _NextClassCard extends StatelessWidget {
             CircleAvatar(
               radius: 25,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(Icons.schedule_rounded, color: AppTheme.primary),
+              child: const Icon(Icons.schedule_rounded, color: AppTheme.primary),
             ),
             const SizedBox(width: 14),
             Expanded(
