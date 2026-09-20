@@ -5,6 +5,8 @@ import 'core/app_controller.dart';
 import 'core/models/app_appearance.dart';
 import 'core/theme/app_theme.dart';
 import 'features/shell/presentation/app_shell.dart';
+import 'features/splash/presentation/splash_screen.dart';
+import 'features/update/presentation/update_dialog.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +35,15 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
     super.initState();
     _controller = widget.controller ?? AppController();
     _ownsController = widget.controller == null;
-    _initialization = _controller.initialize();
+
+    if (_ownsController) {
+      _initialization = Future.wait<void>([
+        _controller.initialize(),
+        Future<void>.delayed(const Duration(milliseconds: 1400)),
+      ]);
+    } else {
+      _initialization = _controller.initialize();
+    }
   }
 
   @override
@@ -72,9 +82,7 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
               future: _initialization,
               builder: (context, snapshot) {
                 if (snapshot.connectionState != ConnectionState.done) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
+                  return const SplashScreen();
                 }
 
                 if (snapshot.hasError) {
@@ -91,12 +99,67 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
                   );
                 }
 
-                return AppShell(controller: _controller);
+                return _StartupShell(
+                  controller: _controller,
+                  checkUpdatesAutomatically: _ownsController,
+                );
               },
             ),
           ),
         );
       },
     );
+  }
+}
+
+
+class _StartupShell extends StatefulWidget {
+  const _StartupShell({
+    required this.controller,
+    required this.checkUpdatesAutomatically,
+  });
+
+  final AppController controller;
+  final bool checkUpdatesAutomatically;
+
+  @override
+  State<_StartupShell> createState() => _StartupShellState();
+}
+
+class _StartupShellState extends State<_StartupShell> {
+  bool _startedUpdateCheck = false;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.checkUpdatesAutomatically) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _runAutomaticUpdateCheck();
+      });
+    }
+  }
+
+  Future<void> _runAutomaticUpdateCheck() async {
+    if (_startedUpdateCheck) return;
+    _startedUpdateCheck = true;
+
+    final result = await widget.controller.checkForUpdates(
+      silent: true,
+      respectIgnored: true,
+    );
+
+    if (!mounted || !result.hasUpdate) return;
+
+    await showAppUpdateDialog(
+      context,
+      controller: widget.controller,
+      update: result.update!,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShell(controller: widget.controller);
   }
 }
