@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
@@ -97,17 +99,7 @@ class MyClassesScreen extends StatelessWidget {
     SchoolPeriod period,
   ) async {
     final existing = controller.assignmentFor(weekday, period.id);
-    final subjectController = TextEditingController(
-      text: existing?.subject ?? '',
-    );
-    final classroomController = TextEditingController(
-      text: existing?.classroom ?? '',
-    );
-    final notesController = TextEditingController(
-      text: existing?.notes ?? '',
-    );
-
-    var enabled = existing?.enabled ?? true;
+    final sheetDisposed = Completer<void>();
 
     final result = await showModalBottomSheet<_ClassEditorResult>(
       context: context,
@@ -115,133 +107,26 @@ class MyClassesScreen extends StatelessWidget {
       useSafeArea: true,
       showDragHandle: true,
       builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                4,
-                20,
-                20 + MediaQuery.viewInsetsOf(context).bottom,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '${ArabicFormat.dayName(weekday)} • ${period.name}',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${ArabicFormat.minutesClock(period.startMinutes)} – ${ArabicFormat.minutesClock(period.endMinutes)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 18),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: enabled,
-                      onChanged: (value) =>
-                          setSheetState(() => enabled = value),
-                      title: const Text('لدي حصة في هذا الوقت'),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: subjectController,
-                      enabled: enabled,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'المادة',
-                        hintText: 'مثال: الرياضيات',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: classroomController,
-                      enabled: enabled,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'الصف / الشعبة',
-                        hintText: 'مثال: الصف 8 / 2',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: notesController,
-                      enabled: enabled,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'ملاحظة اختيارية',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: () {
-                        if (!enabled) {
-                          Navigator.pop(
-                            sheetContext,
-                            const _ClassEditorResult.delete(),
-                          );
-                          return;
-                        }
-
-                        final subject = subjectController.text.trim();
-                        if (subject.isEmpty) {
-                          ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            const SnackBar(
-                              content: Text('اكتب اسم المادة أولًا.'),
-                            ),
-                          );
-                          return;
-                        }
-
-                        Navigator.pop(
-                          sheetContext,
-                          _ClassEditorResult.save(
-                            TeacherClass(
-                              weekday: weekday,
-                              periodId: period.id,
-                              subject: subject,
-                              classroom:
-                                  _nullIfEmpty(classroomController.text),
-                              notes: _nullIfEmpty(notesController.text),
-                            ),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.save_rounded),
-                      label: const Text('حفظ الحصة'),
-                    ),
-                    if (existing != null) ...[
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        onPressed: () {
-                          Navigator.pop(
-                            sheetContext,
-                            const _ClassEditorResult.delete(),
-                          );
-                        },
-                        icon: const Icon(Icons.delete_outline_rounded),
-                        label: const Text('حذف هذه الحصة'),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            );
+        return _ClassEditorSheet(
+          weekday: weekday,
+          period: period,
+          existing: existing,
+          onDisposed: () {
+            if (!sheetDisposed.isCompleted) {
+              sheetDisposed.complete();
+            }
           },
         );
       },
     );
 
-    subjectController.dispose();
-    classroomController.dispose();
-    notesController.dispose();
-
     if (result == null) return;
+
+    // showModalBottomSheet returns the pop result before the reverse route
+    // transition is fully disposed. Wait for the editor subtree to actually
+    // leave the widget tree before notifying listeners and rebuilding the
+    // underlying My Classes screen.
+    await sheetDisposed.future;
 
     if (result.delete) {
       await controller.removeTeacherClass(weekday, period.id);
@@ -254,10 +139,7 @@ class MyClassesScreen extends StatelessWidget {
     }
   }
 
-  static String? _nullIfEmpty(String value) {
-    final text = value.trim();
-    return text.isEmpty ? null : text;
-  }
+
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -417,6 +299,181 @@ class _WeeklyGrid extends StatelessWidget {
   }
 }
 
+
+
+class _ClassEditorSheet extends StatefulWidget {
+  const _ClassEditorSheet({
+    required this.weekday,
+    required this.period,
+    required this.existing,
+    required this.onDisposed,
+  });
+
+  final int weekday;
+  final SchoolPeriod period;
+  final TeacherClass? existing;
+  final VoidCallback onDisposed;
+
+  @override
+  State<_ClassEditorSheet> createState() => _ClassEditorSheetState();
+}
+
+class _ClassEditorSheetState extends State<_ClassEditorSheet> {
+  late final TextEditingController _subjectController;
+  late final TextEditingController _classroomController;
+  late final TextEditingController _notesController;
+  late bool _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _subjectController = TextEditingController(
+      text: widget.existing?.subject ?? '',
+    );
+    _classroomController = TextEditingController(
+      text: widget.existing?.classroom ?? '',
+    );
+    _notesController = TextEditingController(
+      text: widget.existing?.notes ?? '',
+    );
+    _enabled = widget.existing?.enabled ?? true;
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _classroomController.dispose();
+    _notesController.dispose();
+    widget.onDisposed();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final period = widget.period;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '${ArabicFormat.dayName(widget.weekday)} • ${period.name}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${ArabicFormat.minutesClock(period.startMinutes)} – ${ArabicFormat.minutesClock(period.endMinutes)}',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 18),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _enabled,
+              onChanged: (value) => setState(() => _enabled = value),
+              title: const Text('لدي حصة في هذا الوقت'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _subjectController,
+              enabled: _enabled,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'المادة',
+                hintText: 'مثال: الرياضيات',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _classroomController,
+              enabled: _enabled,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'الصف / الشعبة',
+                hintText: 'مثال: الصف 8 / 2',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notesController,
+              enabled: _enabled,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'ملاحظة اختيارية',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.save_rounded),
+              label: const Text('حفظ الحصة'),
+            ),
+            if (widget.existing != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.pop(
+                    context,
+                    const _ClassEditorResult.delete(),
+                  );
+                },
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('حذف هذه الحصة'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _save() {
+    if (!_enabled) {
+      Navigator.pop(
+        context,
+        const _ClassEditorResult.delete(),
+      );
+      return;
+    }
+
+    final subject = _subjectController.text.trim();
+    if (subject.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('اكتب اسم المادة أولًا.'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      _ClassEditorResult.save(
+        TeacherClass(
+          weekday: widget.weekday,
+          periodId: widget.period.id,
+          subject: subject,
+          classroom: _nullIfEmpty(_classroomController.text),
+          notes: _nullIfEmpty(_notesController.text),
+        ),
+      ),
+    );
+  }
+
+  static String? _nullIfEmpty(String value) {
+    final text = value.trim();
+    return text.isEmpty ? null : text;
+  }
+}
 
 class _ClassEditorResult {
   const _ClassEditorResult.save(this.value) : delete = false;
