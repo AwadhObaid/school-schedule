@@ -11,7 +11,12 @@ void main() {
 }
 
 class SchoolScheduleApp extends StatefulWidget {
-  const SchoolScheduleApp({super.key});
+  const SchoolScheduleApp({
+    this.controller,
+    super.key,
+  });
+
+  final AppController? controller;
 
   @override
   State<SchoolScheduleApp> createState() => _SchoolScheduleAppState();
@@ -19,18 +24,22 @@ class SchoolScheduleApp extends StatefulWidget {
 
 class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
   late final AppController _controller;
+  late final bool _ownsController;
   late final Future<void> _initialization;
 
   @override
   void initState() {
     super.initState();
-    _controller = AppController();
+    _controller = widget.controller ?? AppController();
+    _ownsController = widget.controller == null;
     _initialization = _controller.initialize();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (_ownsController) {
+      _controller.dispose();
+    }
     super.dispose();
   }
 
