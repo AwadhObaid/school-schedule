@@ -22,6 +22,24 @@ void main() {
     );
   }
 
+  Future<void> openSettings(
+    WidgetTester tester,
+    AppController controller,
+  ) async {
+    await tester.tap(find.text('الإعدادات'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('دخول الإعدادات'), findsOneWidget);
+
+    final pinField = find.byType(TextField).first;
+    await tester.enterText(pinField, '0000');
+    await tester.tap(find.widgetWithText(FilledButton, 'دخول'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('دخول الإعدادات'), findsNothing);
+    expect(find.text('الحماية والنسخ الاحتياطي'), findsOneWidget);
+  }
+
   testWidgets('Flutter V2 opens with Arabic teacher home shell', (tester) async {
     final controller = createController();
 
@@ -34,6 +52,24 @@ void main() {
     expect(find.text('الجدول'), findsOneWidget);
     expect(find.text('الإعدادات'), findsOneWidget);
     expect(find.text('ابدأ بإضافة حصصك'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('settings require the default PIN', (tester) async {
+    final controller = createController();
+
+    await tester.pumpWidget(SchoolScheduleApp(controller: controller));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await openSettings(tester, controller);
+
+    expect(find.text('صوت الجرس المدرسي'), findsOneWidget);
+    expect(find.text('تنبيهات حصصي'), findsOneWidget);
+    expect(find.text('تصدير نسخة'), findsOneWidget);
+    expect(find.text('استعادة نسخة'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
@@ -65,25 +101,6 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('الرياضيات'), findsOneWidget);
     expect(find.textContaining('لديك 1 حصة أسبوعيًا'), findsOneWidget);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    controller.dispose();
-  });
-
-  testWidgets('settings expose bell audio controls', (tester) async {
-    final controller = createController();
-
-    await tester.pumpWidget(SchoolScheduleApp(controller: controller));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
-
-    await tester.tap(find.text('الإعدادات'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('صوت الجرس المدرسي'), findsOneWidget);
-    expect(find.text('اختيار من الجهاز'), findsOneWidget);
-    expect(find.text('معاينة النغمة'), findsOneWidget);
-    expect(find.text('تنبيهات حصصي'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
@@ -139,4 +156,23 @@ class _FakeBellAudioService implements BellAudioService {
 
   @override
   Future<void> stopPreview() async {}
+
+  @override
+  Future<BellRingtoneBackup?> exportRingtone() async {
+    return const BellRingtoneBackup(
+      name: 'bell.mp3',
+      base64: 'AQIDBA==',
+    );
+  }
+
+  @override
+  Future<BellRingtoneSelection?> restoreRingtone({
+    required String name,
+    required String base64,
+  }) async {
+    return BellRingtoneSelection(
+      uri: 'content://school.test/ringtones/restored',
+      name: name,
+    );
+  }
 }

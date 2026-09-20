@@ -1,16 +1,19 @@
 import 'package:flutter/foundation.dart';
 
 import 'data/school_schedule_defaults.dart';
+import 'models/app_backup.dart';
 import 'models/bell_settings.dart';
 import 'models/notification_settings.dart';
 import 'models/school_period.dart';
 import 'models/school_schedule_settings.dart';
 import 'models/teacher_class.dart';
+import 'services/backup_file_service.dart';
 import 'services/bell_audio_service.dart';
 import 'services/school_bell_engine.dart';
 import 'services/teacher_notification_scheduler.dart';
 import 'services/teacher_schedule_engine.dart';
 import 'storage/bell_settings_store.dart';
+import 'storage/pin_store.dart';
 import 'storage/notification_settings_store.dart';
 import 'storage/school_schedule_store.dart';
 import 'storage/teacher_schedule_store.dart';
@@ -21,6 +24,8 @@ class AppController extends ChangeNotifier {
     SchoolScheduleStore? schoolScheduleStore,
     NotificationSettingsStore? notificationSettingsStore,
     BellSettingsStore? bellSettingsStore,
+    PinStore? pinStore,
+    BackupFileService? backupFileService,
     TeacherNotificationScheduler? notificationScheduler,
     BellAudioService? bellAudioService,
     SchoolBellEngine? schoolBellEngine,
@@ -29,6 +34,8 @@ class AppController extends ChangeNotifier {
         _notificationSettingsStore =
             notificationSettingsStore ?? NotificationSettingsStore(),
         _bellSettingsStore = bellSettingsStore ?? BellSettingsStore(),
+        _pinStore = pinStore ?? PinStore(),
+        _backupFileService = backupFileService ?? MethodChannelBackupFileService(),
         _notificationScheduler =
             notificationScheduler ?? LocalTeacherNotificationScheduler(),
         _bellAudioService =
@@ -39,6 +46,8 @@ class AppController extends ChangeNotifier {
   final SchoolScheduleStore _schoolScheduleStore;
   final NotificationSettingsStore _notificationSettingsStore;
   final BellSettingsStore _bellSettingsStore;
+  final PinStore _pinStore;
+  final BackupFileService _backupFileService;
   final TeacherNotificationScheduler _notificationScheduler;
   final BellAudioService _bellAudioService;
   final SchoolBellEngine _schoolBellEngine;
@@ -47,12 +56,15 @@ class AppController extends ChangeNotifier {
   SchoolScheduleSettings _schoolSchedule = SchoolScheduleDefaults.settings;
   NotificationSettings _notificationSettings = const NotificationSettings();
   BellSettings _bellSettings = const BellSettings();
+  String _settingsPin = PinStore.defaultPin;
 
   bool _initialized = false;
   bool _notificationBusy = false;
   bool _bellBusy = false;
+  bool _backupBusy = false;
   String _notificationStatus = 'التنبيهات غير مفعلة';
   String _bellStatus = 'صوت الجرس غير مفعل';
+  String _backupStatus = 'لم يتم إنشاء نسخة احتياطية في هذه الجلسة';
   String? _bellNotificationChannelId;
 
   bool get initialized => _initialized;
@@ -64,8 +76,10 @@ class AppController extends ChangeNotifier {
   BellSettings get bellSettings => _bellSettings;
   bool get notificationBusy => _notificationBusy;
   bool get bellBusy => _bellBusy;
+  bool get backupBusy => _backupBusy;
   String get notificationStatus => _notificationStatus;
   String get bellStatus => _bellStatus;
+  String get backupStatus => _backupStatus;
 
   List<SchoolPeriod> get teacherPeriodCatalog {
     final byId = <String, SchoolPeriod>{};
@@ -85,6 +99,7 @@ class AppController extends ChangeNotifier {
     _schoolSchedule = await _schoolScheduleStore.load();
     _notificationSettings = await _notificationSettingsStore.load();
     _bellSettings = await _bellSettingsStore.load();
+    _settingsPin = await _pinStore.load();
 
     await _notificationScheduler.initialize();
     await _configureBellChannel();
@@ -313,6 +328,148 @@ class AppController extends ChangeNotifier {
   Future<void> playAutomaticSchoolBell() async {
     if (!_bellSettings.enabled || _bellBusy) return;
     await _bellAudioService.playPreview(_bellSettings);
+  }
+
+  bool verifySettingsPin(String value) => value == _settingsPin;
+
+  Future<bool> changeSettingsPin(String value) async {
+    final pin = value.trim();
+    if (!PinStore.isValid(pin)) return false;
+    _settingsPin = pin;
+    await _pinStore.save(pin);
+    notifyListeners();
+    return true;
+  }
+
+  Future<bool> exportBackup() async {
+    if (_backupBusy) return false;
+    _backupBusy = true;
+    _backupStatus = 'جارٍ تجهيز النسخة الاحتياطية...';
+    notifyListeners();
+
+    try {
+      BellRingtoneBackup? ringtone;
+      if (!_bellSettings.usesSystemRingtone) {
+        ringtone = await _bellAudioService.exportRingtone();
+      }
+
+      final backup = AppBackup(
+        appVersion: '2.5.0+14',
+        exportedAt: DateTime.now(),
+        pin: _settingsPin,
+        schoolSchedule: _schoolSchedule,
+        teacherClasses: _teacherClasses,
+        notificationSettings: _notificationSettings,
+        bellSettings: _bellSettings,
+        ringtoneName: ringtone?.name,
+        ringtoneBase64: ringtone?.base64,
+      );
+
+      final date = DateTime.now().toIso8601String().split('T').first;
+      final shared = await _backupFileService.shareBackup(
+        fileName: 'school-schedule-v2-backup-$date.json',
+        json: backup.encode(),
+      );
+
+      _backupStatus = shared
+          ? 'تم تجهيز النسخة الاحتياطية. اختر مكان حفظها أو مشاركتها.'
+          : 'تعذر فتح نافذة حفظ النسخة الاحتياطية.';
+      return shared;
+    } finally {
+      _backupBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<BackupParseResult?> pickBackup() async {
+    if (_backupBusy) return null;
+    _backupBusy = true;
+    _backupStatus = 'جارٍ قراءة النسخة الاحتياطية...';
+    notifyListeners();
+
+    try {
+      final text = await _backupFileService.pickBackup();
+      if (text == null || text.trim().isEmpty) {
+        _backupStatus = 'لم يتم اختيار ملف.';
+        return null;
+      }
+
+      final result = AppBackup.parse(text);
+      _backupStatus = result.isValid
+          ? 'تم التحقق من النسخة الاحتياطية بنجاح.'
+          : (result.error ?? 'النسخة الاحتياطية غير صالحة.');
+      return result;
+    } finally {
+      _backupBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> applyBackup(AppBackup backup) async {
+    if (_backupBusy) return false;
+    _backupBusy = true;
+    _backupStatus = 'جارٍ استعادة البيانات...';
+    notifyListeners();
+
+    try {
+      var restoredBell = backup.bellSettings;
+
+      if (backup.includesCustomRingtone) {
+        final selection = await _bellAudioService.restoreRingtone(
+          name: backup.ringtoneName ?? backup.bellSettings.ringtoneName,
+          base64: backup.ringtoneBase64!,
+        );
+
+        if (selection != null) {
+          restoredBell = restoredBell.copyWith(
+            ringtoneUri: selection.uri,
+            ringtoneName: selection.name,
+          );
+        } else {
+          restoredBell = restoredBell.copyWith(
+            ringtoneUri: '',
+            ringtoneName: 'نغمة النظام',
+          );
+        }
+      } else if (!backup.bellSettings.usesSystemRingtone) {
+        restoredBell = restoredBell.copyWith(
+          ringtoneUri: '',
+          ringtoneName: 'نغمة النظام',
+        );
+      }
+
+      _schoolSchedule = backup.schoolSchedule;
+      _teacherClasses = List<TeacherClass>.unmodifiable(backup.teacherClasses);
+      _notificationSettings = backup.notificationSettings;
+      _bellSettings = restoredBell;
+      _settingsPin = backup.pin;
+
+      await _schoolScheduleStore.save(_schoolSchedule);
+      await _store.save(_teacherClasses);
+      await _notificationSettingsStore.save(_notificationSettings);
+      await _bellSettingsStore.save(_bellSettings);
+      await _pinStore.save(_settingsPin);
+
+      await _configureBellChannel();
+
+      if (_notificationSettings.enabled) {
+        await _syncNotifications();
+      } else {
+        await _notificationScheduler.cancelTeacherNotifications();
+      }
+
+      _bellStatus = _bellSettings.enabled
+          ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
+          : 'صوت الجرس غير مفعل';
+      _notificationStatus = _notificationSettings.enabled
+          ? 'تنبيهات حصصي مفعلة'
+          : 'التنبيهات غير مفعلة';
+      _backupStatus = 'تمت استعادة النسخة الاحتياطية بنجاح.';
+      return true;
+    } finally {
+      _backupBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> setNotificationSettings(NotificationSettings value) async {

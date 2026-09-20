@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
+import '../../../core/models/app_backup.dart';
 import '../../../core/models/bell_settings.dart';
 import '../../../core/models/notification_settings.dart';
 import '../../../core/theme/app_theme.dart';
@@ -75,7 +76,7 @@ class SettingsScreen extends StatelessWidget {
               onTest: controller.showTestNotification,
             ),
             const SizedBox(height: 16),
-            const _ComingLaterCard(),
+            _BackupSecurityCard(controller: controller),
           ],
         );
       },
@@ -392,38 +393,235 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
-class _ComingLaterCard extends StatelessWidget {
-  const _ComingLaterCard();
+class _BackupSecurityCard extends StatefulWidget {
+  const _BackupSecurityCard({
+    required this.controller,
+  });
+
+  final AppController controller;
+
+  @override
+  State<_BackupSecurityCard> createState() => _BackupSecurityCardState();
+}
+
+class _BackupSecurityCardState extends State<_BackupSecurityCard> {
+  final _pinController = TextEditingController();
+  final _pinConfirmController = TextEditingController();
+  bool _changingPin = false;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    _pinConfirmController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final busy = widget.controller.backupBusy;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(Icons.tune_rounded, color: AppTheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ما زال قيد النقل',
-                    style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Color(0xFFE6F4EB),
+                  child: Icon(Icons.security_rounded, color: AppTheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'الحماية والنسخ الاحتياطي',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'النسخ الاحتياطي ورمز الدخول سيُنقلان من التطبيق القديم في المراحل التالية.',
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.lock_outline_rounded),
+              title: const Text('رمز دخول الإعدادات'),
+              subtitle: const Text(
+                'يُطلب الرمز كل مرة تفتح فيها الإعدادات. الافتراضي 0000.',
+              ),
+              trailing: TextButton(
+                onPressed: () {
+                  setState(() => _changingPin = !_changingPin);
+                },
+                child: Text(_changingPin ? 'إلغاء' : 'تغيير'),
+              ),
+            ),
+            if (_changingPin) ...[
+              TextField(
+                controller: _pinController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                decoration: const InputDecoration(
+                  labelText: 'الرمز الجديد',
+                  hintText: 'من 4 إلى 12 رقمًا',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _pinConfirmController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                decoration: const InputDecoration(
+                  labelText: 'تأكيد الرمز',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: _savePin,
+                icon: const Icon(Icons.save_rounded),
+                label: const Text('حفظ رمز الدخول'),
+              ),
+              const SizedBox(height: 10),
+            ],
+            const Divider(),
+            const SizedBox(height: 8),
+            Text(
+              'النسخ الاحتياطي والاستعادة',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'تشمل النسخة: الجدول، حصصي، إعدادات التنبيهات والجرس، رمز الدخول، وملف النغمة المخصصة إن وجد.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: busy ? null : widget.controller.exportBackup,
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('تصدير نسخة'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: busy ? null : _restoreBackup,
+                    icon: const Icon(Icons.upload_rounded),
+                    label: const Text('استعادة نسخة'),
+                  ),
+                ),
+              ],
+            ),
+            if (busy) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: AppTheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.controller.backupStatus,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _savePin() async {
+    final pin = _pinController.text.trim();
+    final confirm = _pinConfirmController.text.trim();
+
+    if (!RegExp(r'^\d{4,12}$').hasMatch(pin)) {
+      _message('رمز الدخول يجب أن يتكوّن من 4 إلى 12 رقمًا.');
+      return;
+    }
+
+    if (pin != confirm) {
+      _message('تأكيد رمز الدخول غير مطابق.');
+      return;
+    }
+
+    final saved = await widget.controller.changeSettingsPin(pin);
+    if (!mounted) return;
+
+    if (saved) {
+      _pinController.clear();
+      _pinConfirmController.clear();
+      setState(() => _changingPin = false);
+      _message('تم تغيير رمز الدخول بنجاح.');
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    final result = await widget.controller.pickBackup();
+    if (!mounted || result == null || !result.isValid) {
+      if (result?.error != null) _message(result!.error!);
+      return;
+    }
+
+    final backup = result.backup!;
+    final accepted = await _confirmBackup(backup);
+    if (!mounted || accepted != true) return;
+
+    final restored = await widget.controller.applyBackup(backup);
+    if (!mounted) return;
+
+    if (restored) {
+      _message('تمت استعادة النسخة الاحتياطية بنجاح.');
+    }
+  }
+
+  Future<bool?> _confirmBackup(AppBackup backup) {
+    final date = backup.exportedAt.millisecondsSinceEpoch == 0
+        ? 'غير معروف'
+        : backup.exportedAt.toLocal().toString().split('.').first;
+
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('استعادة النسخة الاحتياطية؟'),
+        content: Text(
+          'تاريخ النسخة: $date\n'
+          'حصص المدرس: ${backup.teacherClasses.length}\n'
+          'نغمة مخصصة مرفقة: ${backup.includesCustomRingtone ? 'نعم' : 'لا'}\n\n'
+          'سيتم استبدال الإعدادات والبيانات الحالية بعد التأكيد.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('استعادة'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _message(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text)),
     );
   }
 }

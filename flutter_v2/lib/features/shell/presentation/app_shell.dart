@@ -21,9 +21,77 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _index = 0;
 
-  void _select(int index) {
+  Future<void> _select(int index) async {
     if (_index == index) return;
+
+    if (index == 3) {
+      final allowed = await _requestSettingsPin();
+      if (!allowed || !mounted) return;
+    }
+
     setState(() => _index = index);
+  }
+
+  Future<bool> _requestSettingsPin() async {
+    final pinController = TextEditingController();
+
+    final allowed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        String? errorText;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> submit() async {
+              final valid = widget.controller.verifySettingsPin(
+                pinController.text.trim(),
+              );
+
+              if (valid) {
+                Navigator.pop(dialogContext, true);
+                return;
+              }
+
+              setDialogState(() {
+                errorText = 'رمز الدخول غير صحيح';
+              });
+            }
+
+            return AlertDialog(
+              title: const Text('دخول الإعدادات'),
+              content: TextField(
+                controller: pinController,
+                autofocus: true,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                maxLength: 12,
+                onSubmitted: (_) => submit(),
+                decoration: InputDecoration(
+                  labelText: 'رمز الدخول',
+                  hintText: 'الافتراضي: 0000',
+                  errorText: errorText,
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton(
+                  onPressed: submit,
+                  child: const Text('دخول'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    pinController.dispose();
+    return allowed == true;
   }
 
   @override
@@ -32,7 +100,7 @@ class _AppShellState extends State<AppShell> {
       HomeScreen(
         controller: widget.controller,
         onOpenMyClasses: () => _select(1),
-        onOpenSettings: () => _select(3),
+        onOpenSettings: () { _select(3); },
       ),
       MyClassesScreen(controller: widget.controller),
       ScheduleScreen(controller: widget.controller),
@@ -48,7 +116,7 @@ class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: _select,
+        onDestinationSelected: (index) { _select(index); },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),

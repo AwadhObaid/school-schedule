@@ -13,6 +13,16 @@ class BellRingtoneSelection {
   final String name;
 }
 
+class BellRingtoneBackup {
+  const BellRingtoneBackup({
+    required this.name,
+    required this.base64,
+  });
+
+  final String name;
+  final String base64;
+}
+
 abstract class BellAudioService {
   Future<String?> configure(BellSettings settings);
 
@@ -23,6 +33,13 @@ abstract class BellAudioService {
   Future<void> resetRingtone();
 
   Future<void> stopPreview();
+
+  Future<BellRingtoneBackup?> exportRingtone();
+
+  Future<BellRingtoneSelection?> restoreRingtone({
+    required String name,
+    required String base64,
+  });
 }
 
 class MethodChannelBellAudioService implements BellAudioService {
@@ -87,7 +104,7 @@ class MethodChannelBellAudioService implements BellAudioService {
         },
       );
     } on MissingPluginException {
-      // Platform bridge is installed by the Android Phase 05 installer.
+      // Platform bridge is installed by the Android installer.
     } catch (error) {
       debugPrint('Bell preview failed: $error');
     }
@@ -112,6 +129,63 @@ class MethodChannelBellAudioService implements BellAudioService {
       // Safe no-op outside Android.
     } catch (error) {
       debugPrint('Bell preview stop failed: $error');
+    }
+  }
+
+  @override
+  Future<BellRingtoneBackup?> exportRingtone() async {
+    try {
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'exportRingtone',
+      );
+      if (result == null) return null;
+
+      final base64 = result['base64']?.toString() ?? '';
+      if (base64.isEmpty) return null;
+
+      return BellRingtoneBackup(
+        name: result['name']?.toString().trim().isNotEmpty == true
+            ? result['name']!.toString().trim()
+            : 'ringtone.audio',
+        base64: base64,
+      );
+    } on MissingPluginException {
+      return null;
+    } catch (error) {
+      debugPrint('Bell ringtone export failed: $error');
+      return null;
+    }
+  }
+
+  @override
+  Future<BellRingtoneSelection?> restoreRingtone({
+    required String name,
+    required String base64,
+  }) async {
+    try {
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'restoreRingtone',
+        <String, dynamic>{
+          'name': name,
+          'base64': base64,
+        },
+      );
+      if (result == null) return null;
+
+      final uri = result['uri']?.toString() ?? '';
+      if (uri.isEmpty) return null;
+
+      return BellRingtoneSelection(
+        uri: uri,
+        name: result['name']?.toString().trim().isNotEmpty == true
+            ? result['name']!.toString().trim()
+            : name,
+      );
+    } on MissingPluginException {
+      return null;
+    } catch (error) {
+      debugPrint('Bell ringtone restore failed: $error');
+      return null;
     }
   }
 }
