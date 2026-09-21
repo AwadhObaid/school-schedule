@@ -254,7 +254,7 @@ class _BellCardState extends State<_BellCard> {
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
               subtitle: const Text(
-                'يعمل عند انتقال فترات الجدول أثناء استخدام التطبيق',
+                'يستخدم Android لتشغيل الجرس في مواعيد الجدول حتى مع قفل الشاشة أو وجود التطبيق في الخلفية',
               ),
             ),
             if (widget.busy) ...[

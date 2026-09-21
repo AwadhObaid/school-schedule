@@ -155,7 +155,9 @@ class AppController extends ChangeNotifier {
     if (_schoolNotificationSettings.enabled) {
       _schoolNotificationStatus = 'تنبيهات الجدول المدرسي مفعلة';
     }
-    if (_notificationSettings.enabled || _schoolNotificationSettings.enabled) {
+    if (_notificationSettings.enabled ||
+        _schoolNotificationSettings.enabled ||
+        _bellSettings.enabled) {
       await _syncNotifications();
     }
 
@@ -440,19 +442,50 @@ class AppController extends ChangeNotifier {
   Future<void> setBellEnabled(bool enabled) async {
     if (_bellBusy) return;
 
-    _bellSettings = _bellSettings.copyWith(enabled: enabled);
-    await _bellSettingsStore.save(_bellSettings);
-
-    _bellStatus = enabled
-        ? 'صوت الجرس مفعل • ${_bellSettings.ringtoneName}'
-        : 'صوت الجرس غير مفعل';
-
+    _bellBusy = true;
     notifyListeners();
 
-    if (enabled) {
-      await _bellAudioService.playPreview(_bellSettings);
-    } else {
-      await _bellAudioService.stopPreview();
+    try {
+      if (enabled && !_bellSettings.enabled) {
+        final permissions = await _notificationScheduler.requestPermissions();
+
+        if (!permissions.notificationsGranted) {
+          _bellSettings = _bellSettings.copyWith(enabled: false);
+          await _bellSettingsStore.save(_bellSettings);
+          _bellStatus =
+              'لم يتم منح إذن الإشعارات. يلزم الإذن ليعمل الجرس تلقائيًا في الخلفية.';
+          await _syncNotifications();
+          return;
+        }
+
+        _bellSettings = _bellSettings.copyWith(enabled: true);
+        await _bellSettingsStore.save(_bellSettings);
+        await _configureBellChannel();
+        await _syncNotifications();
+
+        _bellStatus = permissions.exactAlarmsGranted
+            ? 'صوت الجرس مفعل في الخلفية • ${_bellSettings.ringtoneName}'
+            : 'صوت الجرس مفعل • قد يتأخر قليلًا لأن إذن التنبيه الدقيق غير متاح';
+
+        await _bellAudioService.playPreview(_bellSettings);
+        return;
+      }
+
+      _bellSettings = _bellSettings.copyWith(enabled: enabled);
+      await _bellSettingsStore.save(_bellSettings);
+
+      if (!enabled) {
+        await _bellAudioService.stopPreview();
+      }
+
+      await _syncNotifications();
+
+      _bellStatus = enabled
+          ? 'صوت الجرس مفعل في الخلفية • ${_bellSettings.ringtoneName}'
+          : 'صوت الجرس غير مفعل';
+    } finally {
+      _bellBusy = false;
+      notifyListeners();
     }
   }
 
@@ -844,16 +877,7 @@ class AppController extends ChangeNotifier {
 
       _schoolNotificationSettings = next;
       await _schoolNotificationSettingsStore.save(next);
-
-      if (next.enabled) {
-        await _notificationScheduler.syncSchoolSchedule(
-          schedule: _schoolSchedule,
-          enabled: true,
-          androidChannelId: _bellNotificationChannelId,
-        );
-      } else {
-        await _notificationScheduler.cancelSchoolScheduleNotifications();
-      }
+      await _syncSchoolScheduleTransport();
 
       return next.enabled == value.enabled;
     } finally {
@@ -977,11 +1001,19 @@ class AppController extends ChangeNotifier {
       await _notificationScheduler.cancelTeacherNotifications();
     }
 
-    if (_schoolNotificationSettings.enabled) {
+    await _syncSchoolScheduleTransport();
+  }
+
+  Future<void> _syncSchoolScheduleTransport() async {
+    final enabled =
+        _schoolNotificationSettings.enabled || _bellSettings.enabled;
+
+    if (enabled) {
       await _notificationScheduler.syncSchoolSchedule(
         schedule: _schoolSchedule,
         enabled: true,
-        androidChannelId: _bellNotificationChannelId,
+        androidChannelId:
+            _bellSettings.enabled ? _bellNotificationChannelId : null,
       );
     } else {
       await _notificationScheduler.cancelSchoolScheduleNotifications();
