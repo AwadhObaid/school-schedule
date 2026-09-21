@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/notification_settings.dart';
@@ -84,11 +84,24 @@ class LocalTeacherNotificationScheduler
     try {
       tz_data.initializeTimeZones();
       final zoneInfo = await FlutterTimezone.getLocalTimezone();
-      try {
-        tz.setLocalLocation(tz.getLocation(zoneInfo.identifier));
-      } catch (_) {
-        tz.setLocalLocation(tz.UTC);
+      final resolvedLocation = tz.getLocation(zoneInfo.identifier);
+      final systemOffset = DateTime.now().timeZoneOffset;
+      final resolvedOffset =
+          tz.TZDateTime.now(resolvedLocation).timeZoneOffset;
+
+      if (resolvedOffset != systemOffset) {
+        throw StateError(
+          'Resolved timezone offset does not match the device offset: '
+          '${zoneInfo.identifier} resolved=$resolvedOffset '
+          'device=$systemOffset',
+        );
       }
+
+      tz.setLocalLocation(resolvedLocation);
+      debugPrint(
+        'Notification timezone resolved: ${zoneInfo.identifier} '
+        'offset=$resolvedOffset',
+      );
 
       const androidSettings = AndroidInitializationSettings('ic_stat_schedule');
       const settings = InitializationSettings(android: androidSettings);
@@ -136,6 +149,12 @@ class LocalTeacherNotificationScheduler
   @override
   Future<NotificationPermissionResult> requestPermissions() async {
     await initialize();
+    if (!_initialized) {
+      return const NotificationPermissionResult(
+        notificationsGranted: false,
+        exactAlarmsGranted: false,
+      );
+    }
 
     try {
       final android = _plugin.resolvePlatformSpecificImplementation<
@@ -183,6 +202,7 @@ class LocalTeacherNotificationScheduler
     String? androidChannelId,
   }) async {
     await initialize();
+    if (!_initialized) return;
 
     try {
       await cancelTeacherNotifications();
@@ -228,6 +248,7 @@ class LocalTeacherNotificationScheduler
     String? androidChannelId,
   }) async {
     await initialize();
+    if (!_initialized) return;
 
     try {
       await cancelSchoolScheduleNotifications();
@@ -283,6 +304,7 @@ class LocalTeacherNotificationScheduler
   @override
   Future<bool> showTestNotification({String? androidChannelId}) async {
     await initialize();
+    if (!_initialized) return false;
 
     try {
       if (!await _ensureDisplayPermission()) return false;
@@ -311,6 +333,7 @@ class LocalTeacherNotificationScheduler
     String? androidChannelId,
   }) async {
     await initialize();
+    if (!_initialized) return false;
 
     try {
       if (!await _ensureDisplayPermission()) return false;
