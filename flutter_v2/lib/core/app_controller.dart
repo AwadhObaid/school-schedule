@@ -165,6 +165,31 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> handleAppResumed() async {
+    if (!_initialized) return;
+
+    final scheduler = _notificationScheduler;
+    if (scheduler is! TimeZoneAwareNotificationScheduler) return;
+
+    try {
+      final changed = await scheduler.refreshTimeZone();
+      if (!changed) return;
+
+      await _syncNotifications();
+      _notificationStatus = _notificationSettings.enabled
+          ? 'تم تحديث تنبيهات حصصي للمنطقة الزمنية الجديدة'
+          : _notificationStatus;
+      _schoolNotificationStatus =
+          (_schoolNotificationSettings.enabled || _bellSettings.enabled)
+              ? 'تم تحديث تنبيهات الجدول للمنطقة الزمنية الجديدة'
+              : _schoolNotificationStatus;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      debugPrint('Timezone refresh on resume failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   TeacherClass? assignmentFor(int weekday, String periodId) {
     for (final item in _teacherClasses) {
       if (item.weekday == weekday && item.periodId == periodId && item.enabled) {

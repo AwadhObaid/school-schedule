@@ -21,6 +21,10 @@ class NotificationPermissionResult {
   final bool exactAlarmsGranted;
 }
 
+abstract interface class TimeZoneAwareNotificationScheduler {
+  Future<bool> refreshTimeZone();
+}
+
 abstract class TeacherNotificationScheduler {
   Future<void> initialize();
 
@@ -51,7 +55,7 @@ abstract class TeacherNotificationScheduler {
 }
 
 class LocalTeacherNotificationScheduler
-    implements TeacherNotificationScheduler {
+    implements TeacherNotificationScheduler, TimeZoneAwareNotificationScheduler {
   LocalTeacherNotificationScheduler({
     FlutterLocalNotificationsPlugin? plugin,
     NotificationSchedulePlanner? planner,
@@ -75,33 +79,16 @@ class LocalTeacherNotificationScheduler
   final SchoolNotificationPlanner _schoolPlanner;
 
   bool _initialized = false;
+  bool _timeZonesInitialized = false;
   bool _exactAlarmsGranted = false;
+  String? _activeTimeZoneIdentifier;
 
   @override
   Future<void> initialize() async {
     if (_initialized) return;
 
     try {
-      tz_data.initializeTimeZones();
-      final zoneInfo = await FlutterTimezone.getLocalTimezone();
-      final resolvedLocation = tz.getLocation(zoneInfo.identifier);
-      final systemOffset = DateTime.now().timeZoneOffset;
-      final resolvedOffset =
-          tz.TZDateTime.now(resolvedLocation).timeZoneOffset;
-
-      if (resolvedOffset != systemOffset) {
-        throw StateError(
-          'Resolved timezone offset does not match the device offset: '
-          '${zoneInfo.identifier} resolved=$resolvedOffset '
-          'device=$systemOffset',
-        );
-      }
-
-      tz.setLocalLocation(resolvedLocation);
-      debugPrint(
-        'Notification timezone resolved: ${zoneInfo.identifier} '
-        'offset=$resolvedOffset',
-      );
+      await refreshTimeZone();
 
       const androidSettings = AndroidInitializationSettings('ic_stat_schedule');
       const settings = InitializationSettings(android: androidSettings);
@@ -144,6 +131,48 @@ class LocalTeacherNotificationScheduler
       debugPrintStack(stackTrace: stackTrace);
       _initialized = false;
     }
+  }
+
+  @override
+  Future<bool> refreshTimeZone() async {
+    if (!_timeZonesInitialized) {
+      tz_data.initializeTimeZones();
+      _timeZonesInitialized = true;
+    }
+
+    final zoneInfo = await FlutterTimezone.getLocalTimezone();
+    final identifier = zoneInfo.identifier.trim();
+
+    if (identifier.isEmpty) {
+      throw StateError('Device timezone identifier is empty.');
+    }
+
+    final resolvedLocation = tz.getLocation(identifier);
+    final systemOffset = DateTime.now().timeZoneOffset;
+    final resolvedOffset =
+        tz.TZDateTime.now(resolvedLocation).timeZoneOffset;
+
+    if (resolvedOffset != systemOffset) {
+      throw StateError(
+        'Resolved timezone offset does not match the device offset: '
+        '$identifier resolved=$resolvedOffset device=$systemOffset',
+      );
+    }
+
+    final changed = _activeTimeZoneIdentifier != identifier ||
+        tz.local.name != resolvedLocation.name;
+
+    tz.setLocalLocation(resolvedLocation);
+    _activeTimeZoneIdentifier = identifier;
+
+    if (changed) {
+      debugPrint(
+        'Notification timezone changed: $identifier '
+        'offset=$resolvedOffset',
+      );
+    }
+
+    return changed;
   }
 
   @override
@@ -205,6 +234,7 @@ class LocalTeacherNotificationScheduler
     if (!_initialized) return;
 
     try {
+      await refreshTimeZone();
       await cancelTeacherNotifications();
       if (!settings.enabled) return;
 
@@ -251,6 +281,7 @@ class LocalTeacherNotificationScheduler
     if (!_initialized) return;
 
     try {
+      await refreshTimeZone();
       await cancelSchoolScheduleNotifications();
       if (!enabled) return;
 
@@ -307,6 +338,7 @@ class LocalTeacherNotificationScheduler
     if (!_initialized) return false;
 
     try {
+      await refreshTimeZone();
       if (!await _ensureDisplayPermission()) return false;
 
       await _plugin.show(

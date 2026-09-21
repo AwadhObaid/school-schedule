@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -25,7 +26,8 @@ class SchoolScheduleApp extends StatefulWidget {
   State<SchoolScheduleApp> createState() => _SchoolScheduleAppState();
 }
 
-class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
+class _SchoolScheduleAppState extends State<SchoolScheduleApp>
+    with WidgetsBindingObserver {
   late final AppController _controller;
   late final bool _ownsController;
   late final Future<void> _initialization;
@@ -35,6 +37,7 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
     super.initState();
     _controller = widget.controller ?? AppController();
     _ownsController = widget.controller == null;
+    WidgetsBinding.instance.addObserver(this);
 
     if (_ownsController) {
       _initialization = Future.wait<void>([
@@ -47,7 +50,15 @@ class _SchoolScheduleAppState extends State<SchoolScheduleApp> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_controller.handleAppResumed());
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_ownsController) {
       _controller.dispose();
     }
