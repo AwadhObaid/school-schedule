@@ -170,9 +170,10 @@ class AppController extends ChangeNotifier {
 
     final scheduler = _notificationScheduler;
     if (scheduler is! TimeZoneAwareNotificationScheduler) return;
+    final timeZoneScheduler = scheduler as TimeZoneAwareNotificationScheduler;
 
     try {
-      final changed = await scheduler.refreshTimeZone();
+      final changed = await timeZoneScheduler.refreshTimeZone();
       if (!changed) return;
 
       await _syncNotifications();
