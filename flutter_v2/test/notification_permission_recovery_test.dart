@@ -15,6 +15,10 @@ void main() {
   });
 
   test('school test requests permission and rearms schedules', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'school_notification_settings_v1': '{"enabled":true}',
+    });
+
     final scheduler = _Scheduler();
     final controller = AppController(
       notificationScheduler: scheduler,
