@@ -43,9 +43,9 @@ abstract class TeacherNotificationScheduler {
 
   Future<void> cancelSchoolScheduleNotifications();
 
-  Future<void> showTestNotification({String? androidChannelId});
+  Future<bool> showTestNotification({String? androidChannelId});
 
-  Future<void> showSchoolScheduleTestNotification({
+  Future<bool> showSchoolScheduleTestNotification({
     String? androidChannelId,
   });
 }
@@ -281,10 +281,12 @@ class LocalTeacherNotificationScheduler
   }
 
   @override
-  Future<void> showTestNotification({String? androidChannelId}) async {
+  Future<bool> showTestNotification({String? androidChannelId}) async {
     await initialize();
 
     try {
+      if (!await _ensureDisplayPermission()) return false;
+
       await _plugin.show(
         id: 399999,
         title: 'اختبار تنبيهات حصصي',
@@ -296,19 +298,23 @@ class LocalTeacherNotificationScheduler
           channelDescription: _teacherChannelDescription,
         ),
       );
+      return true;
     } catch (error, stackTrace) {
       debugPrint('Teacher test notification failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 
   @override
-  Future<void> showSchoolScheduleTestNotification({
+  Future<bool> showSchoolScheduleTestNotification({
     String? androidChannelId,
   }) async {
     await initialize();
 
     try {
+      if (!await _ensureDisplayPermission()) return false;
+
       await _plugin.show(
         id: 899999,
         title: 'اختبار تنبيهات الجدول المدرسي',
@@ -320,9 +326,26 @@ class LocalTeacherNotificationScheduler
           channelDescription: _schoolChannelDescription,
         ),
       );
+      return true;
     } catch (error, stackTrace) {
       debugPrint('School test notification failed: $error');
       debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  Future<bool> _ensureDisplayPermission() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+
+    if (android == null) return true;
+
+    try {
+      return await android.requestNotificationsPermission() ?? false;
+    } catch (error, stackTrace) {
+      debugPrint('Notification display permission check failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
     }
   }
 

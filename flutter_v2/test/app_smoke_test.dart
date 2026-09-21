@@ -246,12 +246,12 @@ class _FakeNotificationScheduler implements TeacherNotificationScheduler {
   Future<void> cancelSchoolScheduleNotifications() async {}
 
   @override
-  Future<void> showTestNotification({String? androidChannelId}) async {}
+  Future<bool> showTestNotification({String? androidChannelId}) async => true;
 
   @override
-  Future<void> showSchoolScheduleTestNotification({
+  Future<bool> showSchoolScheduleTestNotification({
     String? androidChannelId,
-  }) async {}
+  }) async => true;
 }
 
 class _FakeBellAudioService implements BellAudioService {

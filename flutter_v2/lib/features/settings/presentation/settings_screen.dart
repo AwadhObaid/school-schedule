@@ -439,7 +439,7 @@ class _SchoolNotificationCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: enabled ? onTest : null,
+                onPressed: busy ? null : onTest,
                 icon: const Icon(Icons.notifications_none_rounded),
                 label: const Text('اختبار تنبيهات الجدول الآن'),
               ),
@@ -574,7 +574,7 @@ class _NotificationCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: enabled ? onTest : null,
+                onPressed: busy ? null : onTest,
                 icon: const Icon(Icons.notifications_none_rounded),
                 label: const Text('اختبار التنبيه الآن'),
               ),

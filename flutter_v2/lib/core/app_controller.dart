@@ -697,7 +697,7 @@ class AppController extends ChangeNotifier {
       await _pinStore.save(_settingsPin);
 
       await _configureBellChannel();
-
+      await _reconcileRestoredNotificationPermissions();
       await _syncNotifications();
 
       _bellStatus = _bellSettings.enabled
@@ -794,6 +794,35 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  Future<void> _reconcileRestoredNotificationPermissions() async {
+    final needsNotifications = _notificationSettings.enabled ||
+        _schoolNotificationSettings.enabled ||
+        _bellSettings.enabled;
+
+    if (!needsNotifications) return;
+
+    final permissions = await _notificationScheduler.requestPermissions();
+    if (permissions.notificationsGranted) return;
+
+    if (_notificationSettings.enabled) {
+      _notificationSettings = _notificationSettings.copyWith(enabled: false);
+      await _notificationSettingsStore.save(_notificationSettings);
+    }
+
+    if (_schoolNotificationSettings.enabled) {
+      _schoolNotificationSettings =
+          _schoolNotificationSettings.copyWith(enabled: false);
+      await _schoolNotificationSettingsStore.save(
+        _schoolNotificationSettings,
+      );
+    }
+
+    if (_bellSettings.enabled) {
+      _bellSettings = _bellSettings.copyWith(enabled: false);
+      await _bellSettingsStore.save(_bellSettings);
+    }
+  }
+
   Future<bool> applyLegacyMigration(LegacyMigrationData data) async {
     if (_backupBusy) return false;
 
@@ -820,7 +849,7 @@ class AppController extends ChangeNotifier {
       await _pinStore.save(_settingsPin);
 
       await _configureBellChannel();
-
+      await _reconcileRestoredNotificationPermissions();
       await _syncNotifications();
 
       _bellStatus = _bellSettings.enabled
@@ -887,11 +916,36 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> showSchoolScheduleTestNotification() async {
-    if (!_schoolNotificationSettings.enabled || _schoolNotificationBusy) return;
+    if (_schoolNotificationBusy) return;
 
-    await _notificationScheduler.showSchoolScheduleTestNotification(
-      androidChannelId: _bellNotificationChannelId,
-    );
+    _schoolNotificationBusy = true;
+    notifyListeners();
+
+    try {
+      final permissions = await _notificationScheduler.requestPermissions();
+      if (!permissions.notificationsGranted) {
+        _schoolNotificationStatus =
+            'تعذر الاختبار: إذن الإشعارات غير ممنوح للتطبيق.';
+        return;
+      }
+
+      await _configureBellChannel();
+      await _syncNotifications();
+
+      final sent =
+          await _notificationScheduler.showSchoolScheduleTestNotification(
+        androidChannelId: _bellNotificationChannelId,
+      );
+
+      _schoolNotificationStatus = sent
+          ? (permissions.exactAlarmsGranted
+              ? 'تم إرسال اختبار تنبيهات الجدول بنجاح • التنبيه الدقيق متاح'
+              : 'تم إرسال اختبار تنبيهات الجدول • المواعيد قد تكون تقريبية')
+          : 'تعذر إرسال اختبار تنبيهات الجدول. تحقق من أذونات التطبيق.';
+    } finally {
+      _schoolNotificationBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> setNotificationSettings(NotificationSettings value) async {
@@ -942,10 +996,35 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> showTestNotification() async {
-    if (!_notificationSettings.enabled || _notificationBusy) return;
-    await _notificationScheduler.showTestNotification(
-      androidChannelId: _bellNotificationChannelId,
-    );
+    if (_notificationBusy) return;
+
+    _notificationBusy = true;
+    notifyListeners();
+
+    try {
+      final permissions = await _notificationScheduler.requestPermissions();
+      if (!permissions.notificationsGranted) {
+        _notificationStatus =
+            'تعذر الاختبار: إذن الإشعارات غير ممنوح للتطبيق.';
+        return;
+      }
+
+      await _configureBellChannel();
+      await _syncNotifications();
+
+      final sent = await _notificationScheduler.showTestNotification(
+        androidChannelId: _bellNotificationChannelId,
+      );
+
+      _notificationStatus = sent
+          ? (permissions.exactAlarmsGranted
+              ? 'تم إرسال اختبار تنبيهات حصصي بنجاح • التنبيه الدقيق متاح'
+              : 'تم إرسال اختبار تنبيهات حصصي • المواعيد قد تكون تقريبية')
+          : 'تعذر إرسال اختبار تنبيهات حصصي. تحقق من أذونات التطبيق.';
+    } finally {
+      _notificationBusy = false;
+      notifyListeners();
+    }
   }
 
   SchoolDayStatus schoolDayStatusAt(DateTime now) {
