@@ -90,7 +90,7 @@ class LocalTeacherNotificationScheduler
         tz.setLocalLocation(tz.UTC);
       }
 
-      const androidSettings = AndroidInitializationSettings('ic_stat_school');
+      const androidSettings = AndroidInitializationSettings('ic_stat_schedule');
       const settings = InitializationSettings(android: androidSettings);
 
       await _plugin.initialize(settings: settings);
@@ -366,7 +366,7 @@ class LocalTeacherNotificationScheduler
         channelDescription: channelDescription,
         importance: Importance.high,
         priority: Priority.high,
-        icon: 'ic_stat_school',
+        icon: 'ic_stat_schedule',
       ),
     );
   }
