@@ -1,6 +1,6 @@
 abstract final class AppInfo {
   static const appName = 'التوقيت المدرسي';
-  static const version = '2.11.4+26';
+  static const version = '2.11.5+27';
   static const developerName = 'عوض بن قفله';
 
   static const githubRepositoryUrl =

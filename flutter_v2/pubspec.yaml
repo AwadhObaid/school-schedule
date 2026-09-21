@@ -1,7 +1,7 @@
 name: schedule
 description: Flutter V2 foundation for the School Schedule teacher assistant.
 publish_to: 'none'
-version: 2.11.4+26
+version: 2.11.5+27
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
