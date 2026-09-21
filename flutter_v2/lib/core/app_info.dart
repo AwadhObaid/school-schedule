@@ -1,6 +1,6 @@
 abstract final class AppInfo {
   static const appName = 'التوقيت المدرسي';
-  static const version = '2.11.5+27';
+  static const version = '2.11.6+28';
   static const developerName = 'عوض بن قفله';
 
   static const githubRepositoryUrl =
@@ -12,9 +12,9 @@ abstract final class AppInfo {
   static const stableDownloadUrl =
       'https://github.com/AwadhObaid/school-schedule/releases/latest/download/SchoolSchedule.apk';
 
-  // Until the first production Flutter release exists, sharing remains on
-  // the repository page. Then it can switch to stableDownloadUrl.
-  static const shareUrl = githubRepositoryUrl;
+  // Share the stable direct APK URL so recipients download the app itself,
+  // not the repository page.
+  static const shareUrl = stableDownloadUrl;
 
   static const shareText =
       'تطبيق التوقيت المدرسي\n'
