@@ -341,7 +341,7 @@ class LocalTeacherNotificationScheduler
     if (android == null) return true;
 
     try {
-      return await android.requestNotificationsPermission() ?? false;
+      return await android.requestNotificationsPermission() ?? true;
     } catch (error, stackTrace) {
       debugPrint('Notification display permission check failed: $error');
       debugPrintStack(stackTrace: stackTrace);

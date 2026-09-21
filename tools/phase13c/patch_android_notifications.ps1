@@ -102,7 +102,7 @@ Ensure-Receiver $application 'com.dexterous.flutterlocalnotifications.ScheduledN
     'android.intent.action.BOOT_COMPLETED',
     'android.intent.action.MY_PACKAGE_REPLACED',
     'android.intent.action.QUICKBOOT_POWERON',
-    'com.htc.intent.action.QUICKBOOT_POWER_ON'
+    'com.htc.intent.action.QUICKBOOT_POWERON'
 )
 
 $settings = New-Object System.Xml.XmlWriterSettings
