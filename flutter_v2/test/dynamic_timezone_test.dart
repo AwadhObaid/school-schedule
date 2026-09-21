@@ -54,9 +54,23 @@ void main() {
   });
 
   test('Android receiver handles timezone changes while app is closed', () {
-    final source = File(
-      '../tools/phase13f/SchoolScheduleTimeZoneChangeReceiver.java',
-    ).readAsStringSync();
+    final candidates = <File>[
+      File('../tools/phase13f/SchoolScheduleTimeZoneChangeReceiver.java'),
+      File(
+        'android/app/src/main/java/com/dexterous/flutterlocalnotifications/'
+        'SchoolScheduleTimeZoneChangeReceiver.java',
+      ),
+    ];
+
+    final receiverFile = candidates.firstWhere(
+      (file) => file.existsSync(),
+      orElse: () => throw StateError(
+        'SchoolScheduleTimeZoneChangeReceiver.java was not found in '
+        'repository tools or the local Android project.',
+      ),
+    );
+
+    final source = receiverFile.readAsStringSync();
 
     expect(source, contains('Intent.ACTION_TIMEZONE_CHANGED'));
     expect(source, contains('Intent.ACTION_TIME_CHANGED'));
