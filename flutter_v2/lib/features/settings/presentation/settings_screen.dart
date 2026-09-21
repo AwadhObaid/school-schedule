@@ -378,7 +378,6 @@ class _SchoolNotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = settings.enabled && !busy;
 
     return Card(
       child: Padding(
