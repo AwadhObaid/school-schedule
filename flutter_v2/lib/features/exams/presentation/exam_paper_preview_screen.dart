@@ -303,18 +303,13 @@ class _PaperHeader extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
+                    SizedBox(
                       width: 58,
                       height: 42,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black54),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
                       child: Image.network(
                         _ExamPaperPreviewScreenState._ministryLogoUrl,
-                        width: 54,
-                        height: 38,
+                        width: 58,
+                        height: 42,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
                         errorBuilder: (_, __, ___) => const Icon(
