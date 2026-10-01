@@ -326,7 +326,7 @@ class _PaperHeader extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
                       child: Image.memory(
-                        officialMinistryWordmarkPng,
+                        officialMinistryWordmarkImage,
                         width: 118,
                         height: 30,
                         fit: BoxFit.contain,
@@ -348,7 +348,7 @@ class _PaperHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.memory(
-                      officialYemenEmblemPng,
+                      officialYemenEmblemImage,
                       width: 108,
                       height: 50,
                       fit: BoxFit.contain,
