@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:pdf_widget_wrapper/pdf_widget_wrapper.dart';
 import 'package:printing/printing.dart';
 
 import 'exam_official_assets.dart';
@@ -67,11 +66,9 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     // emblem. Preload it before the detached WidgetWrapper render pass.
 
 
-    final pageFormat = format.copyWith(
-      marginLeft: 0,
-      marginRight: 0,
-      marginTop: 0,
-      marginBottom: 0,
+    final pageFormat = PdfPageFormat(
+      _OfficialPaperGeometry.a4Width,
+      _OfficialPaperGeometry.a4Height,
     );
 
     for (var index = 0; index < _pages.length; index++) {
@@ -339,12 +336,16 @@ class _PaperHeader extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.memory(
-                      officialYemenEmblemPng,
+                    Image.network(
+                      officialYemenEmblemUrl,
                       width: 78,
                       height: 48,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
+                      errorBuilder: (_, __, ___) => const SizedBox(
+                        width: 78,
+                        height: 48,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     _HeaderText(
