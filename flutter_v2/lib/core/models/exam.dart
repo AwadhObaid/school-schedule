@@ -41,6 +41,7 @@ class ExamQuestion {
     this.options = const <String>[],
     this.correctOptionIndex,
     this.answer = '',
+    this.htmlContent = '',
     this.content = const <ExamContentBlock>[],
     this.marks = 1,
   });
@@ -51,6 +52,8 @@ class ExamQuestion {
   final List<String> options;
   final int? correctOptionIndex;
   final String answer;
+  /// Rich HTML body produced by the MExam-style contenteditable editor.
+  final String htmlContent;
   final List<ExamContentBlock> content;
   final double marks;
 
@@ -68,6 +71,7 @@ class ExamQuestion {
       'options': options,
       'correctOptionIndex': correctOptionIndex,
       'answer': answer,
+      'htmlContent': htmlContent,
       'content': content.map((item) => item.toJson()).toList(),
       'marks': marks,
     };
@@ -99,6 +103,7 @@ class ExamQuestion {
       correctOptionIndex:
           int.tryParse(json['correctOptionIndex']?.toString() ?? ''),
       answer: json['answer']?.toString() ?? '',
+      htmlContent: json['htmlContent']?.toString() ?? '',
       content: content,
       marks: double.tryParse(json['marks']?.toString() ?? '') ?? 1,
     );
