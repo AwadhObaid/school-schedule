@@ -527,7 +527,8 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 .editable-part:focus{outline:1px dashed #38bdf8;border-radius:3px;background:rgba(56,189,248,.08)}
 .root{display:inline-flex;align-items:stretch;vertical-align:middle}
 .root .body{border-top:1.5px solid currentColor;padding:2px 7px;min-width:30px;min-height:24px;outline:none}
-.matrix{display:inline-table;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:2px;vertical-align:middle}
+.matrix{display:inline-table;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:2px;vertical-align:middle;width:auto}
+.determinant{border-left:2px solid currentColor;border-right:2px solid currentColor}
 .matrix td{border:0;padding:4px 8px;min-width:34px;min-height:26px;text-align:center;outline:none}
 .matrix td:focus{outline:1px dashed #38bdf8;background:rgba(56,189,248,.08)}
 .limit{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05}
@@ -581,7 +582,9 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
   <button onclick="integral()">∫</button>
   <button onclick="derivative()">d/dx</button>
   <button onclick="sigma()">Σ</button>
-  <button onclick="matrix()">مصفوفة</button>
+  <button onclick="matrix()">مصفوفة 2×2</button>
+  <button onclick="matrix3()">مصفوفة 3×3</button>
+  <button onclick="determinant()">محدد</button>
   <button onclick="vector()">متجه</button>
   <button onclick="multiLine()">أسطر</button>
   <button onclick="chemFormula()">كيمياء</button>
@@ -595,8 +598,8 @@ function restoreSel(){editor.focus();if(window._r){const s=getSelection();s.remo
 function cmd(c,v){restoreSel();document.execCommand(c,false,v||null);saveSel();}
 function insert(t){restoreSel();document.execCommand('insertText',false,t);saveSel();}
 function insertHtml(h){restoreSel();document.execCommand('insertHTML',false,h);saveSel();}
-function focusPart(selector){
-  const el=editor.querySelector(selector);
+let scienceId=0;
+function focusElement(el){
   if(!el) return;
   const range=document.createRange();
   range.selectNodeContents(el);
@@ -607,52 +610,63 @@ function focusPart(selector){
   el.focus();
   saveSel();
 }
+function insertScience(html, partSelector){
+  const id='science_' + (++scienceId);
+  const tagged=html.replace('data-science-id=""','data-science-id="'+id+'"');
+  insertHtml(tagged);
+  const block=editor.querySelector('[data-science-id="'+id+'"]');
+  if(block){
+    block.removeAttribute('data-science-id');
+    focusElement(partSelector ? block.querySelector(partSelector) : block);
+  }
+}
 function fraction(){
-  insertHtml('<span class="science-block frac"><span class="num editable-part" contenteditable="true">a</span><span class="den editable-part" contenteditable="true">b</span></span>');
-  focusPart('.frac .num');
+  insertScience('<span class="science-block frac" data-science-id=""><span class="num editable-part" contenteditable="true">a</span><span class="den editable-part" contenteditable="true">b</span></span>','.num');
 }
 function root(){
-  insertHtml('<span class="science-block root">√<span class="body editable-part" contenteditable="true">x</span></span>');
-  focusPart('.root .body');
+  insertScience('<span class="science-block root" data-science-id="">√<span class="body editable-part" contenteditable="true">x</span></span>','.body');
 }
 function power(){
-  insertHtml('<span class="science-block">x<sup class="block-editable" contenteditable="true">n</sup></span>');
-  focusPart('sup.block-editable');
+  insertScience('<span class="science-block" data-science-id="">x<sup class="block-editable" contenteditable="true">n</sup></span>','sup');
 }
 function subscript(){
-  insertHtml('<span class="science-block">x<sub class="block-editable" contenteditable="true">n</sub></span>');
-  focusPart('sub.block-editable');
+  insertScience('<span class="science-block" data-science-id="">x<sub class="block-editable" contenteditable="true">n</sub></span>','sub');
 }
 function both(){
-  insertHtml('<span class="science-block">x<sup class="block-editable" contenteditable="true">n</sup><sub class="block-editable" contenteditable="true">m</sub></span>');
-  focusPart('sup.block-editable');
+  insertScience('<span class="science-block" data-science-id="">x<sup class="block-editable" contenteditable="true">n</sup><sub class="block-editable" contenteditable="true">m</sub></span>','sup');
 }
 function limit(){
-  insertHtml('<span class="science-block limit"><span>lim</span><span class="under block-editable" contenteditable="true">x→a</span></span>');
-  focusPart('.limit .under');
+  insertScience('<span class="science-block limit" data-science-id=""><span>lim</span><span class="under block-editable" contenteditable="true">x→a</span></span>','.under');
 }
-function integral(){insert('∫');}
-function derivative(){insertHtml('<span class="science-block">d/dx&nbsp;<span class="block-editable" contenteditable="true">f(x)</span></span>');focusPart('.block-editable');}
-function sigma(){insertHtml('<span class="science-block limit"><span>Σ</span><span class="under block-editable" contenteditable="true">i=1…n</span></span>');focusPart('.limit .under');}
+function integral(){
+  insertScience('<span class="science-block limit" data-science-id=""><span class="under block-editable" contenteditable="true">b</span><span style="font-size:2em;line-height:.7">∫</span><span class="under block-editable" contenteditable="true">a</span></span>','.under');
+}
+function derivative(){
+  insertScience('<span class="science-block" data-science-id="">d/dx&nbsp;<span class="block-editable" contenteditable="true">f(x)</span></span>','.block-editable');
+}
+function sigma(){
+  insertScience('<span class="science-block limit" data-science-id=""><span class="under block-editable" contenteditable="true">i=1</span><span style="font-size:1.7em">Σ</span><span class="under block-editable" contenteditable="true">n</span></span>','.under');
+}
 function matrix(){
-  insertHtml('<table class="matrix"><tr><td contenteditable="true">a₁₁</td><td contenteditable="true">a₁₂</td></tr><tr><td contenteditable="true">a₂₁</td><td contenteditable="true">a₂₂</td></tr></table><span> </span>');
-  focusPart('.matrix td');
+  insertScience('<table class="matrix" data-science-id=""><tr><td contenteditable="true">a₁₁</td><td contenteditable="true">a₁₂</td></tr><tr><td contenteditable="true">a₂₁</td><td contenteditable="true">a₂₂</td></tr></table><span> </span>','td');
+}
+function matrix3(){
+  insertScience('<table class="matrix" data-science-id=""><tr><td contenteditable="true">a₁₁</td><td contenteditable="true">a₁₂</td><td contenteditable="true">a₁₃</td></tr><tr><td contenteditable="true">a₂₁</td><td contenteditable="true">a₂₂</td><td contenteditable="true">a₂₃</td></tr><tr><td contenteditable="true">a₃₁</td><td contenteditable="true">a₃₂</td><td contenteditable="true">a₃₃</td></tr></table><span> </span>','td');
+}
+function determinant(){
+  insertScience('<table class="matrix determinant" data-science-id=""><tr><td contenteditable="true">a</td><td contenteditable="true">b</td></tr><tr><td contenteditable="true">c</td><td contenteditable="true">d</td></tr></table><span> </span>','td');
 }
 function vector(){
-  insertHtml('<span class="science-block vector"><span class="block-editable" contenteditable="true">v</span></span>');
-  focusPart('.vector .block-editable');
+  insertScience('<span class="science-block vector" data-science-id=""><span class="block-editable" contenteditable="true">v</span></span>','.block-editable');
 }
 function multiLine(){
-  insertHtml('<div class="science-block"><span class="block-editable" contenteditable="true">y = ax + b</span><br><span class="block-editable" contenteditable="true">y = mx + c</span></div>');
-  focusPart('.block-editable');
+  insertScience('<div class="science-block" data-science-id=""><span class="block-editable" contenteditable="true">y = ax + b</span><br><span class="block-editable" contenteditable="true">y = mx + c</span></div>','.block-editable');
 }
 function chemFormula(){
-  insertHtml('<span class="science-block chem"><span class="block-editable" contenteditable="true">H<sub>2</sub>O + CO<sub>2</sub></span></span>');
-  focusPart('.chem .block-editable');
+  insertScience('<span class="science-block chem" data-science-id=""><span class="block-editable" contenteditable="true">H<sub>2</sub>O + CO<sub>2</sub></span></span>','.block-editable');
 }
 function chemReaction(){
-  insertHtml('<span class="science-block chem"><span class="block-editable" contenteditable="true">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span></span>');
-  focusPart('.chem .block-editable');
+  insertScience('<span class="science-block chem" data-science-id=""><span class="block-editable" contenteditable="true">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span></span>','.block-editable');
 }
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
