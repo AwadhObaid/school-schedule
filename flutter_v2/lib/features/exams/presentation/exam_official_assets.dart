@@ -28,7 +28,7 @@ bool _officialExamFontLoaded = false;
 Future<void> loadOfficialExamFont() async {
   if (_officialExamFontLoaded) return;
   final bytes = Uint8List.fromList(
-    GZipDecoder().decodeBytes(base64Decode(_officialAmiriGzipBase64)),
+    GZipDecoder().decodeBytes(base64Decode(_officialAmiriGzipBase64.replaceAll(RegExp(r'\\s+'), ''))),
   );
   final loader = FontLoader(officialExamFontFamily);
   loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
