@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -661,33 +662,53 @@ class _QuestionOnPaper extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          for (final block in question.effectiveContent)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: block.type == ExamContentBlockType.text
-                  ? Text(
-                      block.value,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 10,
-                        height: 1.35,
-                      ),
-                    )
-                  : Align(
-                      alignment: Alignment.center,
-                      child: Math.tex(
+          if (question.htmlContent.trim().isNotEmpty)
+            Directionality(
+              textDirection: TextDirection.rtl,
+              child: Html(
+                data: question.htmlContent,
+                style: {
+                  'body': Style(
+                    margin: Margins.zero,
+                    padding: HtmlPaddings.zero,
+                    color: Colors.black,
+                    fontSize: FontSize(10),
+                    lineHeight: const LineHeight(1.35),
+                    textAlign: TextAlign.right,
+                  ),
+                  'div': Style(margin: Margins.zero, padding: HtmlPaddings.zero),
+                  'p': Style(margin: Margins.zero, padding: HtmlPaddings.zero),
+                },
+              ),
+            )
+          else
+            for (final block in question.effectiveContent)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: block.type == ExamContentBlockType.text
+                    ? Text(
                         block.value,
-                        mathStyle: MathStyle.display,
-                        onErrorFallback: (_) => const Text(
-                          'معادلة غير صالحة',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 9,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 10,
+                          height: 1.35,
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.center,
+                        child: Math.tex(
+                          block.value,
+                          mathStyle: MathStyle.display,
+                          onErrorFallback: (_) => const Text(
+                            'معادلة غير صالحة',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 9,
+                            ),
                           ),
                         ),
                       ),
-                    ),
             ),
           if (question.type == ExamQuestionType.multipleChoice &&
               question.options.isNotEmpty)
