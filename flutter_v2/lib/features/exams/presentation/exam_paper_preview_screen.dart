@@ -3,6 +3,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../../../core/models/exam.dart';
 import '../../../core/models/exam_content_block.dart';
+import '../../../core/models/exam_paper_template.dart';
 
 class ExamPaperPreviewScreen extends StatelessWidget {
   const ExamPaperPreviewScreen({
@@ -561,7 +562,7 @@ class _PaperFooter extends StatelessWidget {
     required this.pageNumber,
   });
 
-  final dynamic template;
+  final ExamPaperTemplate template;
   final int pageNumber;
 
   @override
