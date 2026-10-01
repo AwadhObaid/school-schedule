@@ -64,7 +64,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     final now = DateTime.now();
     final old = widget.initial;
     final exam = Exam(
-      id: old?.id ?? 'exam_' + now.microsecondsSinceEpoch.toString(),
+      id: old?.id ?? 'exam_${now.microsecondsSinceEpoch}',
       title: title,
       subject: subject,
       className: _className.text.trim(),
@@ -213,7 +213,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    'الأسئلة (' + _questions.length.toString() + ')',
+                    'الأسئلة ${_questions.length}',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 12),
@@ -222,10 +222,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                       leading: CircleAvatar(child: Text((i + 1).toString())),
                       title: Text(_questions[i].prompt),
                       subtitle: Text(
-                        _questions[i].type.label +
-                            ' • ' +
-                            _questions[i].marks.toString() +
-                            ' درجة',
+                        '${_questions[i].type.label} • ${_questions[i].marks} درجة',
                       ),
                       onTap: () => _editQuestion(i),
                       trailing: IconButton(
@@ -285,10 +282,18 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     _prompt = TextEditingController(text: q?.prompt ?? '');
     _answer = TextEditingController(text: q?.answer ?? '');
     _marks = TextEditingController(text: (q?.marks ?? 1).toString());
-    _options = (q?.options.isNotEmpty == true
-            ? q!.options
-            : const ['الخيار الأول', 'الخيار الثاني', 'الخيار الثالث', 'الخيار الرابع'])
-        .map(TextEditingController.new)
+    final optionTexts = q?.options.isNotEmpty == true
+        ? q!.options
+        : const <String>[
+            'الخيار الأول',
+            'الخيار الثاني',
+            'الخيار الثالث',
+            'الخيار الرابع',
+          ];
+    _options = optionTexts
+        .map<TextEditingController>(
+          (text) => TextEditingController(text: text),
+        )
         .toList();
     _correct = q?.correctOptionIndex;
   }
@@ -298,7 +303,9 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     _prompt.dispose();
     _answer.dispose();
     _marks.dispose();
-    for (final c in _options) c.dispose();
+    for (final c in _options) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -332,23 +339,34 @@ class _QuestionDialogState extends State<_QuestionDialog> {
             ),
             const SizedBox(height: 10),
             if (isChoice)
-              ...List.generate(_options.length, (i) {
-                return Row(
+              RadioGroup<int>(
+                groupValue: _correct,
+                onChanged: (value) {
+                  setState(() => _correct = value);
+                },
+                child: Column(
                   children: [
-                    Radio<int>(
-                      value: i,
-                      groupValue: _correct,
-                      onChanged: (v) => setState(() => _correct = v),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _options[i],
-                        decoration: InputDecoration(labelText: 'الخيار ' + (i + 1).toString()),
+                    ...List.generate(
+                      _options.length,
+                      (i) => Row(
+                        children: [
+                          Radio<int>(
+                            value: i,
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _options[i],
+                              decoration: InputDecoration(
+                                labelText: 'الخيار ' + (i + 1).toString(),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                );
-              })
+                ),
+              )
             else
               TextField(
                 controller: _answer,
@@ -395,7 +413,7 @@ class _QuestionDialogState extends State<_QuestionDialog> {
     Navigator.pop(
       context,
       ExamQuestion(
-        id: widget.initial?.id ?? 'question_' + DateTime.now().microsecondsSinceEpoch.toString(),
+        id: widget.initial?.id ?? 'question_${DateTime.now().microsecondsSinceEpoch}',
         type: _type,
         prompt: prompt,
         options: options,
