@@ -323,6 +323,16 @@ class _PaperHeader extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Image.memory(
+                        officialMinistryWordmarkPng,
+                        width: 118,
+                        height: 30,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
                     _HeaderText(t.ministry, bold: true),
                     _HeaderText(t.educationOffice),
                     _HeaderText(t.educationAdministration),
@@ -362,16 +372,6 @@ class _PaperHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: Image.memory(
-                        officialMinistryWordmarkPng,
-                        width: 118,
-                        height: 30,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                      ),
-                    ),
                     _InfoLine(t.subjectLabel, exam.subject),
                     _InfoLine(t.gradeLabel, exam.className),
                     _InfoLine(t.dateLabel, '___ / ___ / ______م'),
