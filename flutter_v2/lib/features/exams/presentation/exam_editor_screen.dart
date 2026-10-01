@@ -847,6 +847,7 @@ class _EquationDialog extends StatefulWidget {
 
 class _EquationDialogState extends State<_EquationDialog> {
   late final MathFieldEditingController _controller;
+  late String _latex;
 
   static const _symbols = <String, String>{
     'π': r'\pi',
@@ -872,7 +873,7 @@ class _EquationDialogState extends State<_EquationDialog> {
   void initState() {
     super.initState();
     _controller = MathFieldEditingController();
-    _controller.text = widget.initial;
+    _latex = widget.initial;
   }
 
   @override
@@ -882,7 +883,12 @@ class _EquationDialogState extends State<_EquationDialog> {
   }
 
   void _insertSymbol(String tex) {
-    _controller.text = '${_controller.text} $tex ';
+    // math_keyboard 0.4.x exposes the controller for clearing/focus, but not
+    // a public text getter/setter. Keep the value in state and append symbols
+    // to it; the user can continue editing the expression in the MathField.
+    setState(() {
+      _latex = '${_latex.trim()} $tex ';
+    });
   }
 
   @override
@@ -904,6 +910,9 @@ class _EquationDialogState extends State<_EquationDialog> {
                     labelText: 'المعادلة',
                     border: OutlineInputBorder(),
                   ),
+                  onChanged: (value) {
+                    setState(() => _latex = value);
+                  },
                 ),
                 const SizedBox(height: 14),
                 Align(
@@ -934,7 +943,7 @@ class _EquationDialogState extends State<_EquationDialog> {
                   ),
                 ),
                 const SizedBox(height: 10),
-                if (_controller.text.trim().isNotEmpty)
+                if (_latex.trim().isNotEmpty)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -945,7 +954,7 @@ class _EquationDialogState extends State<_EquationDialog> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Math.tex(
-                      _controller.text,
+                      _latex,
                       mathStyle: MathStyle.display,
                       onErrorFallback: (_) =>
                           const Text('راجع صيغة المعادلة.'),
@@ -962,7 +971,7 @@ class _EquationDialogState extends State<_EquationDialog> {
           ),
           FilledButton.icon(
             onPressed: () {
-              final value = _controller.text.trim();
+              final value = _latex.trim();
               if (value.isEmpty) return;
               Navigator.pop(context, value);
             },
