@@ -25,6 +25,8 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 }
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
+  static const _ministryLogoUrl =
+      'https://moe-ye.net/wp-content/uploads/2020/01/logo-278x300.png';
   late final List<List<ExamQuestion>> _pages;
 
   @override
@@ -59,6 +61,13 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     final pdf = pw.Document(
       version: PdfVersion.pdf_1_5,
       compress: true,
+    );
+
+    // The reference sheet uses the official Yemeni Ministry of Education
+    // emblem. Preload it before the detached WidgetWrapper render pass.
+    await precacheImage(
+      const NetworkImage(_ministryLogoUrl),
+      context,
     );
 
     final pageFormat = format.copyWith(
@@ -297,13 +306,21 @@ class _PaperHeader extends StatelessWidget {
                     Container(
                       width: 58,
                       height: 42,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.black54),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Icon(
-                        Icons.account_balance,
-                        size: 30,
+                      child: Image.network(
+                        _ExamPaperPreviewScreenState._ministryLogoUrl,
+                        width: 54,
+                        height: 38,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.account_balance,
+                          size: 28,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 3),
