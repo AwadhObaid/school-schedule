@@ -1,3 +1,6 @@
+import 'exam_content_block.dart';
+import 'exam_paper_template.dart';
+
 enum ExamQuestionType {
   multipleChoice,
   trueFalse,
@@ -38,6 +41,7 @@ class ExamQuestion {
     this.options = const <String>[],
     this.correctOptionIndex,
     this.answer = '',
+    this.content = const <ExamContentBlock>[],
     this.marks = 1,
   });
 
@@ -47,7 +51,14 @@ class ExamQuestion {
   final List<String> options;
   final int? correctOptionIndex;
   final String answer;
+  final List<ExamContentBlock> content;
   final double marks;
+
+  List<ExamContentBlock> get effectiveContent {
+    if (content.isNotEmpty) return content;
+    if (prompt.trim().isEmpty) return const <ExamContentBlock>[];
+    return <ExamContentBlock>[ExamContentBlock.text(prompt)];
+  }
 
   Map<String, dynamic> toJson() {
     return {
@@ -57,11 +68,24 @@ class ExamQuestion {
       'options': options,
       'correctOptionIndex': correctOptionIndex,
       'answer': answer,
+      'content': content.map((item) => item.toJson()).toList(),
       'marks': marks,
     };
   }
 
   factory ExamQuestion.fromJson(Map<String, dynamic> json) {
+    final rawContent = json['content'];
+    final content = rawContent is List
+        ? rawContent
+            .whereType<Map>()
+            .map(
+              (item) => ExamContentBlock.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList()
+        : <ExamContentBlock>[];
+
     final rawOptions = json['options'];
     final options = rawOptions is List
         ? rawOptions.map((item) => item.toString()).toList()
@@ -75,6 +99,7 @@ class ExamQuestion {
       correctOptionIndex:
           int.tryParse(json['correctOptionIndex']?.toString() ?? ''),
       answer: json['answer']?.toString() ?? '',
+      content: content,
       marks: double.tryParse(json['marks']?.toString() ?? '') ?? 1,
     );
   }
@@ -90,6 +115,7 @@ class Exam {
     this.periodId,
     this.durationMinutes = 60,
     this.notes = '',
+    this.template = const ExamPaperTemplate(),
     this.questions = const <ExamQuestion>[],
     this.createdAt,
     this.updatedAt,
@@ -103,6 +129,7 @@ class Exam {
   final String? periodId;
   final int durationMinutes;
   final String notes;
+  final ExamPaperTemplate template;
   final List<ExamQuestion> questions;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -121,6 +148,7 @@ class Exam {
     bool clearPeriodId = false,
     int? durationMinutes,
     String? notes,
+    ExamPaperTemplate? template,
     List<ExamQuestion>? questions,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -134,6 +162,7 @@ class Exam {
       periodId: clearPeriodId ? null : (periodId ?? this.periodId),
       durationMinutes: durationMinutes ?? this.durationMinutes,
       notes: notes ?? this.notes,
+      template: template ?? this.template,
       questions: List.unmodifiable(questions ?? this.questions),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -150,6 +179,7 @@ class Exam {
       'periodId': periodId,
       'durationMinutes': durationMinutes,
       'notes': notes,
+      'template': template.toJson(),
       'questions': questions.map((item) => item.toJson()).toList(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
@@ -157,6 +187,11 @@ class Exam {
   }
 
   factory Exam.fromJson(Map<String, dynamic> json) {
+    final rawTemplate = json['template'];
+    final template = rawTemplate is Map
+        ? ExamPaperTemplate.fromJson(Map<String, dynamic>.from(rawTemplate))
+        : const ExamPaperTemplate();
+
     final rawQuestions = json['questions'];
     final questions = rawQuestions is List
         ? rawQuestions
@@ -180,6 +215,7 @@ class Exam {
       durationMinutes:
           int.tryParse(json['durationMinutes']?.toString() ?? '') ?? 60,
       notes: json['notes']?.toString() ?? '',
+      template: template,
       questions: questions,
       createdAt: parseDate(json['createdAt']),
       updatedAt: parseDate(json['updatedAt']),
