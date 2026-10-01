@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -62,9 +63,15 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       compress: true,
     );
 
-    // The reference sheet uses the official Yemeni Ministry of Education
-    // emblem. Preload it before the detached WidgetWrapper render pass.
-
+    // Load the official emblem before the detached WidgetWrapper render pass.
+    // MemoryImage is deterministic inside the detached PDF snapshot.
+    final logoData = await NetworkAssetBundle(
+      Uri.parse(officialYemenEmblemUrl),
+    ).load(officialYemenEmblemUrl);
+    final logoBytes = logoData.buffer.asUint8List(
+      logoData.offsetInBytes,
+      logoData.lengthInBytes,
+    );
 
     final pageFormat = PdfPageFormat(
       _OfficialPaperGeometry.a4Width,
@@ -77,6 +84,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         pageNumber: index + 1,
         totalPages: _pages.length,
         questions: _pages[index],
+        logoBytes: logoBytes,
       );
 
       final wrapped = await WidgetWrapper.fromWidget(
@@ -246,12 +254,14 @@ class _PaperPage extends StatelessWidget {
     required this.pageNumber,
     required this.totalPages,
     required this.questions,
+    required this.logoBytes,
   });
 
   final Exam exam;
   final int pageNumber;
   final int totalPages;
   final List<ExamQuestion> questions;
+  final Uint8List logoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +283,7 @@ class _PaperPage extends StatelessWidget {
           ),
           child: Column(
             children: [
-            _PaperHeader(exam: exam),
+            _PaperHeader(exam: exam, logoBytes: logoBytes),
             const SizedBox(height: 5),
             _InstructionBar(text: template.instruction),
             const SizedBox(height: 10),
@@ -300,9 +310,10 @@ class _PaperPage extends StatelessWidget {
 }
 
 class _PaperHeader extends StatelessWidget {
-  const _PaperHeader({required this.exam});
+  const _PaperHeader({required this.exam, required this.logoBytes});
 
   final Exam exam;
+  final Uint8List logoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -336,16 +347,12 @@ class _PaperHeader extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.network(
-                      officialYemenEmblemUrl,
+                    Image.memory(
+                      logoBytes,
                       width: 78,
                       height: 48,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
-                      errorBuilder: (_, __, ___) => const SizedBox(
-                        width: 78,
-                        height: 48,
-                      ),
                     ),
                     const SizedBox(height: 3),
                     _HeaderText(
