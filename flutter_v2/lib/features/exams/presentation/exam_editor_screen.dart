@@ -8,6 +8,7 @@ import '../../../core/models/exam_content_block.dart';
 import '../../../core/models/exam_paper_template.dart';
 import '../../../core/storage/exam_store.dart';
 import 'exam_paper_preview_screen.dart';
+import 'mexam_question_editor_sheet.dart';
 
 class ExamEditorScreen extends StatefulWidget {
   const ExamEditorScreen({
@@ -105,7 +106,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => const _QuestionEditorSheet(),
+      builder: (_) => const MexamQuestionEditorSheet(),
     );
     if (q != null) setState(() => _questions.add(q));
   }
@@ -116,7 +117,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => _QuestionEditorSheet(initial: _questions[index]),
+      builder: (_) => MexamQuestionEditorSheet(initial: _questions[index]),
     );
     if (q != null) setState(() => _questions[index] = q);
   }
