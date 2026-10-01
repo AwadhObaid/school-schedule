@@ -57,6 +57,8 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     BuildContext context,
     PdfPageFormat format,
   ) async {
+    await loadOfficialExamFont();
+
     final pdf = pw.Document(
       version: PdfVersion.pdf_1_5,
       compress: true,
@@ -436,6 +438,7 @@ class _HeaderText extends StatelessWidget {
         color: Colors.black,
         fontSize: _OfficialPaperTypography.headerRegular,
         fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        fontFamily: officialExamFontFamily,
       ),
     );
   }
@@ -457,6 +460,7 @@ class _InfoLine extends StatelessWidget {
           style: const TextStyle(
             color: Colors.black,
             fontSize: 9.5,
+            fontFamily: officialExamFontFamily,
           ),
           children: [
             TextSpan(
