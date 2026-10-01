@@ -8,6 +8,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf_widget_wrapper/pdf_widget_wrapper.dart';
 import 'package:printing/printing.dart';
 
+import 'exam_official_assets.dart';
+
 import '../../../core/models/exam.dart';
 import '../../../core/models/exam_content_block.dart';
 import '../../../core/models/exam_paper_template.dart';
@@ -65,10 +67,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
 
     // The reference sheet uses the official Yemeni Ministry of Education
     // emblem. Preload it before the detached WidgetWrapper render pass.
-    await precacheImage(
-      const NetworkImage(_ministryLogoUrl),
-      context,
-    );
+
 
     final pageFormat = format.copyWith(
       marginLeft: 0,
@@ -238,9 +237,14 @@ class _PaperPage extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
-        child: Column(
-          children: [
+        padding: const EdgeInsets.all(15.3),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black, width: 2.25),
+          ),
+          padding: const EdgeInsets.fromLTRB(13.45, 13.45, 13.45, 10),
+          child: Column(
+            children: [
             _PaperHeader(exam: exam),
             const SizedBox(height: 5),
             _InstructionBar(text: template.instruction),
@@ -284,7 +288,7 @@ class _PaperHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              flex: 4,
+              flex: 228,
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -298,25 +302,17 @@ class _PaperHeader extends StatelessWidget {
               ),
             ),
             Expanded(
-              flex: 4,
+              flex: 275,
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: 58,
-                      height: 42,
-                      child: Image.network(
-                        _ExamPaperPreviewScreenState._ministryLogoUrl,
-                        width: 58,
-                        height: 42,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.account_balance,
-                          size: 28,
-                        ),
-                      ),
+                    Image.memory(
+                      officialYemenEmblemPng,
+                      width: 78,
+                      height: 48,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
                     const SizedBox(height: 3),
                     _HeaderText(
@@ -330,7 +326,7 @@ class _PaperHeader extends StatelessWidget {
               ),
             ),
             Expanded(
-              flex: 4,
+              flex: 185,
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -516,12 +512,6 @@ class _QuestionsArea extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black12,
-          width: 0.8,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
