@@ -1,11 +1,17 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf_widget_wrapper/pdf_widget_wrapper.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/models/exam.dart';
 import '../../../core/models/exam_content_block.dart';
 import '../../../core/models/exam_paper_template.dart';
 
-class ExamPaperPreviewScreen extends StatelessWidget {
+class ExamPaperPreviewScreen extends StatefulWidget {
   const ExamPaperPreviewScreen({
     required this.exam,
     super.key,
@@ -14,89 +20,151 @@ class ExamPaperPreviewScreen extends StatelessWidget {
   final Exam exam;
 
   @override
-  Widget build(BuildContext context) {
-    final pages = _paginate(exam.questions);
+  State<ExamPaperPreviewScreen> createState() => _ExamPaperPreviewScreenState();
+}
 
+class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
+  late final List<List<ExamQuestion>> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = _paginate(widget.exam.questions);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('معاينة ورقة الاختبار A4 • ${pages.length} صفحة'),
-        actions: [
-          IconButton(
-            tooltip: 'معلومات المعاينة',
-            onPressed: () => _showInfo(context),
-            icon: const Icon(Icons.info_outline),
-          ),
-        ],
+        title: Text('ورقة الاختبار A4 • معاينة PDF'),
       ),
-      body: Container(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final availableWidth =
-                (constraints.maxWidth - 32).clamp(280.0, 900.0);
-            final pageHeight = availableWidth * 297 / 210;
-
-            return PageView.builder(
-              controller: PageController(),
-              itemCount: pages.length,
-              itemBuilder: (context, index) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: SizedBox(
-                      width: availableWidth,
-                      height: pageHeight,
-                      child: Material(
-                        color: Colors.white,
-                        elevation: 2,
-                        child: _PaperPage(
-                          exam: exam,
-                          pageNumber: index + 1,
-                          totalPages: pages.length,
-                          questions: pages[index],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
+      body: PdfPreview(
+        initialPageFormat: PdfPageFormat.a4,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        allowPrinting: true,
+        allowSharing: true,
+        maxPageWidth: 850,
+        pdfFileName: _fileName(widget.exam),
+        build: (format) => _buildPdf(context, format),
       ),
     );
   }
 
-  List<List<ExamQuestion>> _paginate(List<ExamQuestion> questions) {
-    if (questions.isEmpty) return const <List<ExamQuestion>>[<ExamQuestion>[]];
+  Future<Uint8List> _buildPdf(
+    BuildContext context,
+    PdfPageFormat format,
+  ) async {
+    final pdf = pw.Document(
+      version: PdfVersion.pdf_1_5,
+      compress: true,
+    );
 
-    // Temporary visual pagination for the A4 preview.
-    // Phase 15D will replace this with measured PDF pagination.
-    const capacity = 5;
+    final pageFormat = format.copyWith(
+      marginLeft: 0,
+      marginRight: 0,
+      marginTop: 0,
+      marginBottom: 0,
+    );
+
+    for (var index = 0; index < _pages.length; index++) {
+      final pageWidget = _PaperPage(
+        exam: widget.exam,
+        pageNumber: index + 1,
+        totalPages: _pages.length,
+        questions: _pages[index],
+      );
+
+      final wrapped = await WidgetWrapper.fromWidget(
+        context: context,
+        widget: pageWidget,
+        constraints: BoxConstraints.tight(
+          Size(pageFormat.width, pageFormat.height),
+        ),
+        pixelRatio: 2.0,
+        dpi: 144,
+      );
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: pw.EdgeInsets.zero,
+          build: (_) => pw.Image(
+            wrapped,
+            width: pageFormat.width,
+            height: pageFormat.height,
+            fit: pw.BoxFit.fill,
+          ),
+        ),
+      );
+    }
+
+    return pdf.save();
+  }
+
+  static List<List<ExamQuestion>> _paginate(
+    List<ExamQuestion> questions,
+  ) {
+    if (questions.isEmpty) {
+      return const <List<ExamQuestion>>[<ExamQuestion>[]];
+    }
+
+    // The page is a fixed A4 canvas. We use a vertical footprint estimate
+    // instead of the old fixed "5 questions per page" rule.
+    const pageCapacity = 24.0;
     final pages = <List<ExamQuestion>>[];
+    var current = <ExamQuestion>[];
+    var used = 0.0;
 
-    for (var i = 0; i < questions.length; i += capacity) {
-      final end = (i + capacity < questions.length)
-          ? i + capacity
-          : questions.length;
-      pages.add(List.unmodifiable(questions.sublist(i, end)));
+    for (final question in questions) {
+      final footprint = _questionFootprint(question);
+      if (current.isNotEmpty && used + footprint > pageCapacity) {
+        pages.add(List.unmodifiable(current));
+        current = <ExamQuestion>[];
+        used = 0;
+      }
+
+      current.add(question);
+      used += footprint;
+    }
+
+    if (current.isNotEmpty) {
+      pages.add(List.unmodifiable(current));
     }
 
     return pages;
   }
 
-  void _showInfo(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => const AlertDialog(
-        title: Text('معاينة A4'),
-        content: Text(
-          'هذه المرحلة تعرض الكليشة ومحتوى الأسئلة داخل مساحة ورقة A4. '
-          'التصدير إلى PDF والطباعة المباشرة ستكون في المرحلة التالية.',
-          textAlign: TextAlign.right,
-        ),
-      ),
-    );
+  static double _questionFootprint(ExamQuestion question) {
+    final textLength = question.prompt.trim().length;
+    final textLines = (textLength / 62).ceil().clamp(1, 8);
+    var units = 2.7 + textLines * 0.9;
+
+    final equations = question.effectiveContent
+        .where((block) => block.type == ExamContentBlockType.equation)
+        .length;
+    units += equations * 3.0;
+
+    if (question.type == ExamQuestionType.multipleChoice) {
+      final optionsLength =
+          question.options.fold<int>(0, (sum, option) => sum + option.length);
+      units += 1.5 + (optionsLength / 95).ceil() * 0.8;
+    } else if (question.type == ExamQuestionType.trueFalse) {
+      units += 1.0;
+    } else if (question.type == ExamQuestionType.shortAnswer ||
+        question.type == ExamQuestionType.essay) {
+      units += 1.5;
+    }
+
+    return units;
+  }
+
+  static String _fileName(Exam exam) {
+    final clean = exam.title.trim().replaceAll(
+          RegExp(r'[\\/:*?"<>|]'),
+          '_',
+        );
+    return clean.isEmpty ? 'exam.pdf' : '$clean.pdf';
   }
 }
 
