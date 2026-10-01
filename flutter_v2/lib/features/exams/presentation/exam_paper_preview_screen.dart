@@ -510,19 +510,16 @@ class _QuestionsArea extends StatelessWidget {
           width: 0.8,
         ),
       ),
-      child: SingleChildScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < questions.length; i++)
-              _QuestionOnPaper(
-                number: i + 1,
-                question: questions[i],
-                showMarks: showMarks,
-              ),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < questions.length; i++)
+            _QuestionOnPaper(
+              number: i + 1,
+              question: questions[i],
+              showMarks: showMarks,
+            ),
+        ],
       ),
     );
   }
