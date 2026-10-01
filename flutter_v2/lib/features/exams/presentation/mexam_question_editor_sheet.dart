@@ -518,15 +518,21 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 #scienceTools button{white-space:nowrap;flex:0 0 auto}
 .toolTitle{font-size:12px;font-weight:700;color:#cbd5e1;align-self:center;white-space:nowrap}
 .science-block{display:inline-flex;align-items:center;vertical-align:middle;margin:2px 4px;padding:2px 3px;border-radius:3px}
+.science-block[contenteditable="false"]{user-select:none}
+.block-editable{outline:none;min-width:18px}
+.block-editable:focus{outline:1px dashed #38bdf8;border-radius:3px;background:rgba(56,189,248,.08)}
 .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.1}
-.frac .num{border-bottom:1.5px solid currentColor;padding:0 5px;min-width:24px;text-align:center}
-.frac .den{padding:0 5px;min-width:24px;text-align:center}
+.frac .num{border-bottom:1.5px solid currentColor;padding:0 7px;min-width:30px;min-height:24px;text-align:center;outline:none}
+.frac .den{padding:0 7px;min-width:30px;min-height:24px;text-align:center;outline:none}
+.editable-part:focus{outline:1px dashed #38bdf8;border-radius:3px;background:rgba(56,189,248,.08)}
 .root{display:inline-flex;align-items:stretch;vertical-align:middle}
-.root .body{border-top:1.5px solid currentColor;padding:1px 5px;min-width:25px}
+.root .body{border-top:1.5px solid currentColor;padding:2px 7px;min-width:30px;min-height:24px;outline:none}
 .matrix{display:inline-table;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:2px;vertical-align:middle}
-.matrix td{border:0;padding:2px 7px;min-width:25px;text-align:center}
+.matrix td{border:0;padding:4px 8px;min-width:34px;min-height:26px;text-align:center;outline:none}
+.matrix td:focus{outline:1px dashed #38bdf8;background:rgba(56,189,248,.08)}
 .limit{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05}
-.limit .under{font-size:.72em}
+.limit .under{font-size:.72em;outline:none;min-width:28px}
+.limit .under:focus{outline:1px dashed #38bdf8;border-radius:3px}
 .vector{display:inline-block;position:relative;padding-top:3px}
 .vector:before{content:'→';position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:.8em}
 .chem{font-family:Arial,sans-serif;direction:ltr;unicode-bidi:isolate}
@@ -589,20 +595,65 @@ function restoreSel(){editor.focus();if(window._r){const s=getSelection();s.remo
 function cmd(c,v){restoreSel();document.execCommand(c,false,v||null);saveSel();}
 function insert(t){restoreSel();document.execCommand('insertText',false,t);saveSel();}
 function insertHtml(h){restoreSel();document.execCommand('insertHTML',false,h);saveSel();}
-function fraction(){insertHtml('<span class="science-block frac"><span class="num">a</span><span class="den">b</span></span>');}
-function root(){insertHtml('<span class="science-block root">√<span class="body">x</span></span>');}
-function power(){insertHtml('<span class="science-block">x<sup>n</sup></span>');}
-function subscript(){insertHtml('<span class="science-block">x<sub>n</sub></span>');}
-function both(){insertHtml('<span class="science-block">x<sup>n</sup><sub>m</sub></span>');}
-function limit(){insertHtml('<span class="science-block limit"><span>lim</span><span class="under">x→a</span></span>');}
+function focusPart(selector){
+  const el=editor.querySelector(selector);
+  if(!el) return;
+  const range=document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel=getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  el.focus();
+  saveSel();
+}
+function fraction(){
+  insertHtml('<span class="science-block frac"><span class="num editable-part" contenteditable="true">a</span><span class="den editable-part" contenteditable="true">b</span></span>');
+  focusPart('.frac .num');
+}
+function root(){
+  insertHtml('<span class="science-block root">√<span class="body editable-part" contenteditable="true">x</span></span>');
+  focusPart('.root .body');
+}
+function power(){
+  insertHtml('<span class="science-block">x<sup class="block-editable" contenteditable="true">n</sup></span>');
+  focusPart('sup.block-editable');
+}
+function subscript(){
+  insertHtml('<span class="science-block">x<sub class="block-editable" contenteditable="true">n</sub></span>');
+  focusPart('sub.block-editable');
+}
+function both(){
+  insertHtml('<span class="science-block">x<sup class="block-editable" contenteditable="true">n</sup><sub class="block-editable" contenteditable="true">m</sub></span>');
+  focusPart('sup.block-editable');
+}
+function limit(){
+  insertHtml('<span class="science-block limit"><span>lim</span><span class="under block-editable" contenteditable="true">x→a</span></span>');
+  focusPart('.limit .under');
+}
 function integral(){insert('∫');}
-function derivative(){insertHtml('<span class="science-block">d/dx&nbsp; f(x)</span>');}
-function sigma(){insertHtml('<span class="science-block limit"><span>Σ</span><span class="under">i=1…n</span></span>');}
-function matrix(){insertHtml('<table class="matrix"><tr><td>a₁₁</td><td>a₁₂</td></tr><tr><td>a₂₁</td><td>a₂₂</td></tr></table>');}
-function vector(){insertHtml('<span class="science-block vector">v</span>');}
-function multiLine(){insertHtml('<div class="science-block">y = ax + b<br>y = mx + c</div>');}
-function chemFormula(){insertHtml('<span class="science-block chem">H<sub>2</sub>O + CO<sub>2</sub></span>');}
-function chemReaction(){insertHtml('<span class="science-block chem">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span>');}
+function derivative(){insertHtml('<span class="science-block">d/dx&nbsp;<span class="block-editable" contenteditable="true">f(x)</span></span>');focusPart('.block-editable');}
+function sigma(){insertHtml('<span class="science-block limit"><span>Σ</span><span class="under block-editable" contenteditable="true">i=1…n</span></span>');focusPart('.limit .under');}
+function matrix(){
+  insertHtml('<table class="matrix"><tr><td contenteditable="true">a₁₁</td><td contenteditable="true">a₁₂</td></tr><tr><td contenteditable="true">a₂₁</td><td contenteditable="true">a₂₂</td></tr></table><span> </span>');
+  focusPart('.matrix td');
+}
+function vector(){
+  insertHtml('<span class="science-block vector"><span class="block-editable" contenteditable="true">v</span></span>');
+  focusPart('.vector .block-editable');
+}
+function multiLine(){
+  insertHtml('<div class="science-block"><span class="block-editable" contenteditable="true">y = ax + b</span><br><span class="block-editable" contenteditable="true">y = mx + c</span></div>');
+  focusPart('.block-editable');
+}
+function chemFormula(){
+  insertHtml('<span class="science-block chem"><span class="block-editable" contenteditable="true">H<sub>2</sub>O + CO<sub>2</sub></span></span>');
+  focusPart('.chem .block-editable');
+}
+function chemReaction(){
+  insertHtml('<span class="science-block chem"><span class="block-editable" contenteditable="true">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span></span>');
+  focusPart('.chem .block-editable');
+}
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
   button.classList.add('active');
@@ -619,6 +670,19 @@ function mexamSetHTML(h){editor.innerHTML=h||'<div><br></div>';saveSel();}
 function mexamFocus(){editor.focus();saveSel();}
 document.addEventListener('selectionchange',()=>{if(document.activeElement===editor||editor.contains(document.activeElement))saveSel()});
 editor.addEventListener('input',saveSel);
+editor.addEventListener('keydown',function(e){
+  const target=e.target;
+  if(!(target instanceof HTMLElement)) return;
+  if((target.classList.contains('editable-part')||target.classList.contains('block-editable')) &&
+     e.key==='Backspace' && target.textContent.trim()===''){
+    e.preventDefault();
+    const block=target.closest('.science-block,.frac,.root,.matrix');
+    if(block){
+      block.remove();
+      saveSel();
+    }
+  }
+});
 editor.addEventListener('keyup',saveSel);
 editor.addEventListener('mouseup',saveSel);
 editor.addEventListener('touchend',()=>setTimeout(saveSel,0));
