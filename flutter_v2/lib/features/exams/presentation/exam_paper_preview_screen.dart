@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -85,12 +86,16 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         dpi: 144,
       );
 
+      // WidgetWrapper exposes raw RGBA pixels. Convert them to PNG before
+      // handing them to the PDF engine to avoid raw-image decoding issues.
+      final pngBytes = await _rawRgbaToPng(wrapped);
+
       pdf.addPage(
         pw.Page(
           pageFormat: pageFormat,
           margin: pw.EdgeInsets.zero,
           build: (_) => pw.Image(
-            wrapped,
+            pw.MemoryImage(pngBytes),
             width: pageFormat.width,
             height: pageFormat.height,
             fit: pw.BoxFit.fill,
@@ -100,6 +105,42 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     }
 
     return pdf.save();
+  }
+
+  static Future<Uint8List> _rawRgbaToPng(WidgetWrapper wrapped) async {
+    final width = wrapped.width;
+    final height = wrapped.height;
+
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      throw StateError('تعذر تحديد أبعاد صفحة الاختبار.');
+    }
+
+    final buffer = await ui.ImmutableBuffer.fromUint8List(wrapped.bytes);
+    final descriptor = ui.ImageDescriptor.raw(
+      buffer,
+      width: width,
+      height: height,
+      pixelFormat: ui.PixelFormat.rgba8888,
+    );
+    final codec = await descriptor.instantiateCodec();
+    final frame = await codec.getNextFrame();
+    final byteData = await frame.image.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+
+    frame.image.dispose();
+    codec.dispose();
+    descriptor.dispose();
+    buffer.dispose();
+
+    if (byteData == null) {
+      throw StateError('تعذر تحويل صفحة الاختبار إلى صورة PNG.');
+    }
+
+    return byteData.buffer.asUint8List(
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
+    );
   }
 
   static List<List<ExamQuestion>> _paginate(
