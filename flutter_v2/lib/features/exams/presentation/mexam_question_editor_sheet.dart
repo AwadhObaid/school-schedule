@@ -293,6 +293,22 @@ sup{font-size:.72em;vertical-align:super}
 sub{font-size:.72em;vertical-align:sub}
 table{border-collapse:collapse;width:100%;margin:8px 0}
 td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
+#scienceTools{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:7px;background:#0b1220;direction:rtl;flex-shrink:0}
+#scienceTools button{white-space:nowrap}
+.toolTitle{font-size:12px;font-weight:700;color:#cbd5e1;align-self:center;white-space:nowrap}
+.science-block{display:inline-flex;align-items:center;vertical-align:middle;margin:2px 4px;padding:2px 3px;border-radius:3px}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.1}
+.frac .num{border-bottom:1.5px solid currentColor;padding:0 5px;min-width:24px;text-align:center}
+.frac .den{padding:0 5px;min-width:24px;text-align:center}
+.root{display:inline-flex;align-items:stretch;vertical-align:middle}
+.root .body{border-top:1.5px solid currentColor;padding:1px 5px;min-width:25px}
+.matrix{display:inline-table;border-left:2px solid currentColor;border-right:2px solid currentColor;border-radius:2px;vertical-align:middle}
+.matrix td{border:0;padding:2px 7px;min-width:25px;text-align:center}
+.limit{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05}
+.limit .under{font-size:.72em}
+.vector{display:inline-block;position:relative;padding-top:3px}
+.vector:before{content:'→';position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:.8em}
+.chem{font-family:Arial,sans-serif;direction:ltr;unicode-bidi:isolate}
 </style>
 </head>
 <body>
@@ -323,6 +339,23 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 <button onclick="insert('Δ')">Δ</button><button onclick="fraction()">a/b</button>
 <button onclick="root()">√x</button>
 </div>
+<div id="scienceTools">
+  <span class="toolTitle">الرياضيات والعلوم المتقدمة</span>
+  <button onclick="fraction()">كسر</button>
+  <button onclick="root()">جذر</button>
+  <button onclick="power()">xⁿ</button>
+  <button onclick="subscript()">xₙ</button>
+  <button onclick="both()">xⁿₘ</button>
+  <button onclick="limit()">lim</button>
+  <button onclick="integral()">∫</button>
+  <button onclick="derivative()">d/dx</button>
+  <button onclick="sigma()">Σ</button>
+  <button onclick="matrix()">مصفوفة</button>
+  <button onclick="vector()">متجه</button>
+  <button onclick="multiLine()">أسطر</button>
+  <button onclick="chemFormula()">كيمياء</button>
+  <button onclick="chemReaction()">تفاعل</button>
+</div>
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
 const editor=document.getElementById('editor');
@@ -331,8 +364,20 @@ function restoreSel(){editor.focus();if(window._r){const s=getSelection();s.remo
 function cmd(c,v){restoreSel();document.execCommand(c,false,v||null);saveSel();}
 function insert(t){restoreSel();document.execCommand('insertText',false,t);saveSel();}
 function insertHtml(h){restoreSel();document.execCommand('insertHTML',false,h);saveSel();}
-function fraction(){insertHtml('<span class="eq-frac"><span class="eq-num" contenteditable="true">a</span><span class="eq-den" contenteditable="true">b</span></span>');}
-function root(){insertHtml('<span class="eq-root">√<span class="eq-root-body" contenteditable="true">x</span></span>');}
+function fraction(){insertHtml('<span class="science-block frac"><span class="num">a</span><span class="den">b</span></span>');}
+function root(){insertHtml('<span class="science-block root">√<span class="body">x</span></span>');}
+function power(){insertHtml('<span class="science-block">x<sup>n</sup></span>');}
+function subscript(){insertHtml('<span class="science-block">x<sub>n</sub></span>');}
+function both(){insertHtml('<span class="science-block">x<sup>n</sup><sub>m</sub></span>');}
+function limit(){insertHtml('<span class="science-block limit"><span>lim</span><span class="under">x→a</span></span>');}
+function integral(){insert('∫');}
+function derivative(){insertHtml('<span class="science-block">d/dx&nbsp; f(x)</span>');}
+function sigma(){insertHtml('<span class="science-block limit"><span>Σ</span><span class="under">i=1…n</span></span>');}
+function matrix(){insertHtml('<table class="matrix"><tr><td>a₁₁</td><td>a₁₂</td></tr><tr><td>a₂₁</td><td>a₂₂</td></tr></table>');}
+function vector(){insertHtml('<span class="science-block vector">v</span>');}
+function multiLine(){insertHtml('<div class="science-block">y = ax + b<br>y = mx + c</div>');}
+function chemFormula(){insertHtml('<span class="science-block chem">H<sub>2</sub>O + CO<sub>2</sub></span>');}
+function chemReaction(){insertHtml('<span class="science-block chem">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span>');}
 function mexamGetHTML(){const c=editor.cloneNode(true);c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==editor)e.removeAttribute('contenteditable')});return c.innerHTML;}
 function mexamSetHTML(h){editor.innerHTML=h||'<div><br></div>';saveSel();}
 function mexamFocus(){editor.focus();saveSel();}
