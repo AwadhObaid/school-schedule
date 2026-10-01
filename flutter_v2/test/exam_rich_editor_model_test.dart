@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/core/models/exam.dart';
-import '../lib/core/models/exam_content_block.dart';
-import '../lib/core/models/exam_paper_template.dart';
+import 'package:schedule/core/models/exam.dart';
+import 'package:schedule/core/models/exam_content_block.dart';
+import 'package:schedule/core/models/exam_paper_template.dart';
 
 void main() {
   group('Exam rich content', () {
