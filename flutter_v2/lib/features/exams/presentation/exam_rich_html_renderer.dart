@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
-/// Lightweight renderer for the controlled HTML emitted by the MExam-style
-/// question editor. It intentionally supports the editor's semantic subset
-/// instead of depending on a browser/CSS engine in the A4 print path.
+/// Renders the controlled HTML produced by the MExam-style editor.
+/// Scientific structures are rendered as independent Flutter widgets so
+/// they keep their geometry when the page is rasterized into the A4 PDF.
 class ExamRichHtmlRenderer extends StatelessWidget {
-  const ExamRichHtmlRenderer({required this.html, this.fontSize = 10, super.key});
+  const ExamRichHtmlRenderer({
+    required this.html,
+    this.fontSize = 10,
+    super.key,
+  });
+
   final String html;
   final double fontSize;
 
@@ -18,36 +23,425 @@ class ExamRichHtmlRenderer extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
-        children: [for (final node in fragment.nodes) ..._renderBlock(node)],
+        children: [
+          for (final node in fragment.nodes) _renderNode(node),
+        ],
       ),
     );
   }
 
-  List<Widget> _renderBlock(dom.Node node) {
+  Widget _renderNode(dom.Node node) {
     if (node is dom.Text) {
       final text = _decode(node.data);
-      if (text.trim().isEmpty) return const [];
-      return [Text(text, textAlign: TextAlign.right, style: TextStyle(color: Colors.black, fontSize: fontSize, height: 1.35))];
+      if (text.trim().isEmpty) return const SizedBox.shrink();
+      return _text(text);
     }
-    if (node is! dom.Element) return const [];
+
+    if (node is! dom.Element) return const SizedBox.shrink();
+
     final tag = node.localName?.toLowerCase() ?? '';
-    if (tag == 'br') return const [SizedBox(height: 2)];
-    if (tag == 'table') return [_renderTable(node)];
-    if (tag == 'ul' || tag == 'ol') {
-      return [Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < node.children.length; i++)
-            _listItem(node.children[i], i + 1, tag == 'ol'),
-        ],
-      )];
+    final classes = _classes(node);
+
+    if (tag == 'br') return const SizedBox(height: 5);
+
+    if (classes.contains('frac')) return _fraction(node);
+    if (classes.contains('root')) return _root(node);
+    if (classes.contains('limit')) return _limit(node);
+    if (classes.contains('matrix')) return _matrix(node);
+    if (classes.contains('vector')) return _vector(node);
+    if (classes.contains('isotope')) return _isotope(node);
+    if (classes.contains('chem')) return _scientificText(node);
+    if (classes.contains('physics-unit')) return _scientificText(node);
+    if (classes.contains('science-template')) {
+      return _centered(_scientificText(node));
     }
-    return [
-      Padding(
-        padding: const EdgeInsets.only(bottom: 2),
-        child: _inlineRich(node),
+    if (tag == 'table') return _table(node);
+
+    if (tag == 'ul' || tag == 'ol') {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < node.children.length; i++)
+              _listItem(node.children[i], i + 1, tag == 'ol'),
+          ],
+        ),
+      );
+    }
+
+    if (tag == 'div' || tag == 'p') {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: _inlineFlow(node),
+      );
+    }
+
+    return _inlineFlow(node);
+  }
+
+  Widget _inlineFlow(dom.Element element) {
+    final children = <Widget>[];
+    for (final child in element.nodes) {
+      if (child is dom.Text) {
+        final text = _decode(child.data);
+        if (text.isNotEmpty) children.add(_text(text));
+        continue;
+      }
+
+      if (child is dom.Element) {
+        final classes = _classes(child);
+        if (classes.contains('frac')) {
+          children.add(_fraction(child));
+        } else if (classes.contains('root')) {
+          children.add(_root(child));
+        } else if (classes.contains('limit')) {
+          children.add(_limit(child));
+        } else if (classes.contains('matrix')) {
+          children.add(_matrix(child));
+        } else if (classes.contains('vector')) {
+          children.add(_vector(child));
+        } else if (classes.contains('isotope')) {
+          children.add(_isotope(child));
+        } else if (classes.contains('chem') ||
+            classes.contains('physics-unit')) {
+          children.add(_scientificText(child));
+        } else if (classes.contains('science-template')) {
+          children.add(_scientificText(child, bold: true));
+        } else if (child.localName == 'br') {
+          children.add(const SizedBox(width: double.infinity, height: 5));
+        } else if (child.localName == 'sup' || child.localName == 'sub') {
+          children.add(_script(child));
+        } else {
+          children.add(_styledInline(child));
+        }
+      }
+    }
+
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 3,
+        runSpacing: 3,
+        textDirection: TextDirection.rtl,
+        children: children,
       ),
-    ];
+    );
+  }
+
+  Widget _styledInline(dom.Element element) {
+    final text = element.text;
+    final tag = element.localName?.toLowerCase() ?? '';
+    return Text(
+      text,
+      textAlign: TextAlign.right,
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: fontSize,
+        height: 1.35,
+        fontWeight:
+            tag == 'strong' || tag == 'b' ? FontWeight.bold : FontWeight.normal,
+        fontStyle: tag == 'em' || tag == 'i'
+            ? FontStyle.italic
+            : FontStyle.normal,
+        decoration:
+            tag == 'u' ? TextDecoration.underline : TextDecoration.none,
+      ),
+    );
+  }
+
+  Widget _script(dom.Element element) {
+    final isSup = element.localName?.toLowerCase() == 'sup';
+    return Transform.translate(
+      offset: Offset(0, isSup ? -3 : 3),
+      child: Text(
+        element.text,
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: fontSize * .68,
+          height: .8,
+        ),
+      ),
+    );
+  }
+
+  Widget _fraction(dom.Element node) {
+    final numerator = node.querySelector('.num')?.text.trim() ?? 'a';
+    final denominator = node.querySelector('.den')?.text.trim() ?? 'b';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            numerator,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black, fontSize: fontSize * .92),
+          ),
+          Container(
+            width: 34,
+            height: 1,
+            color: Colors.black,
+          ),
+          Text(
+            denominator,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black, fontSize: fontSize * .92),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _root(dom.Element node) {
+    final body = node.querySelector('.body')?.text.trim() ?? 'x';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        textDirection: TextDirection.ltr,
+        children: [
+          Text(
+            '√',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: fontSize * 1.25,
+              height: 1,
+            ),
+          ),
+          Container(
+            constraints: const BoxConstraints(minWidth: 20),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.black, width: .8),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              body,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black, fontSize: fontSize),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _limit(dom.Element node) {
+    final children = node.children
+        .where((item) => item.text.trim().isNotEmpty)
+        .toList();
+
+    if (node.text.contains('Σ')) {
+      final lower = children.isNotEmpty ? children.first.text : 'i=1';
+      final upper = children.length > 1 ? children.last.text : 'n';
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              upper,
+              style: TextStyle(color: Colors.black, fontSize: fontSize * .62),
+            ),
+            Text(
+              'Σ',
+              style: TextStyle(color: Colors.black, fontSize: fontSize * 1.35),
+            ),
+            Text(
+              lower,
+              style: TextStyle(color: Colors.black, fontSize: fontSize * .62),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final target = children.isNotEmpty ? children.last.text : 'x→a';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'lim',
+            style: TextStyle(color: Colors.black, fontSize: fontSize),
+          ),
+          Text(
+            target,
+            style: TextStyle(color: Colors.black, fontSize: fontSize * .65),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _matrix(dom.Element node) {
+    final rows = node.querySelectorAll('tr');
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border.symmetric(
+            vertical: BorderSide(color: Colors.black, width: 1.4),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        child: Table(
+          defaultColumnWidth: const IntrinsicColumnWidth(),
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            for (final row in rows)
+              TableRow(
+                children: [
+                  for (final cell in row.children.where(
+                    (e) => e.localName == 'td' || e.localName == 'th',
+                  ))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        cell.text.trim(),
+                        textAlign: TextAlign.center,
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: fontSize * .88,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _vector(dom.Element node) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: Text(
+              node.text.trim(),
+              textDirection: TextDirection.ltr,
+              style: TextStyle(color: Colors.black, fontSize: fontSize),
+            ),
+          ),
+          const Positioned(
+            top: -1,
+            child: Text(
+              '→',
+              style: TextStyle(color: Colors.black, fontSize: 8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _isotope(dom.Element node) {
+    final mass = node.querySelector('.mass')?.text.trim() ?? '14';
+    final element = node.querySelector('.element')?.text.trim() ?? 'C';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        textDirection: TextDirection.ltr,
+        children: [
+          Text(
+            mass,
+            style: TextStyle(color: Colors.black, fontSize: fontSize * .62),
+          ),
+          Text(
+            element,
+            style: TextStyle(color: Colors.black, fontSize: fontSize),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _table(dom.Element table) {
+    final rows = table.querySelectorAll('tr');
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Table(
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        border: TableBorder.all(color: Colors.black, width: .6),
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        children: [
+          for (final row in rows)
+            TableRow(
+              children: [
+                for (final cell in row.children.where(
+                  (e) => e.localName == 'td' || e.localName == 'th',
+                ))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 3,
+                    ),
+                    child: Text(
+                      cell.text.trim(),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: fontSize * .9,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _scientificText(dom.Element node, {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Text(
+        node.text.trim(),
+        textDirection: TextDirection.ltr,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: fontSize,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+          fontFamily: 'Arial',
+        ),
+      ),
+    );
+  }
+
+  Widget _centered(Widget child) {
+    return Align(
+      alignment: Alignment.center,
+      child: child,
+    );
   }
 
   Widget _listItem(dom.Element element, int index, bool ordered) {
@@ -55,200 +449,45 @@ class ExamRichHtmlRenderer extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       textDirection: TextDirection.rtl,
       children: [
-        SizedBox(width: 18, child: Text(ordered ? '$index.' : '•', textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: fontSize))),
-        Expanded(child: _inlineRich(element)),
+        SizedBox(
+          width: 18,
+          child: Text(
+            ordered ? '$index.' : '•',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black, fontSize: fontSize),
+          ),
+        ),
+        Expanded(child: _inlineFlow(element)),
       ],
     );
   }
 
-  Widget _inlineRich(dom.Node node) {
-    final spans = <InlineSpan>[];
-    _collectInline(node, spans, const TextStyle(color: Colors.black));
-    return RichText(
+  Widget _text(String value) {
+    return Text(
+      value,
       textAlign: TextAlign.right,
       textDirection: TextDirection.rtl,
-      text: TextSpan(
-        style: TextStyle(color: Colors.black, fontSize: fontSize, height: 1.35),
-        children: spans,
+      style: TextStyle(
+        color: Colors.black,
+        fontSize: fontSize,
+        height: 1.35,
       ),
     );
   }
 
-  void _collectInline(dom.Node node, List<InlineSpan> out, TextStyle style) {
-    if (node is dom.Text) {
-      final text = _decode(node.data);
-      if (text.isNotEmpty) out.add(TextSpan(text: text, style: style));
-      return;
-    }
-    if (node is! dom.Element) return;
-
-    final tag = node.localName?.toLowerCase() ?? '';
-    var nextStyle = style;
-    if (tag == 'strong' || tag == 'b') {
-      nextStyle = nextStyle.copyWith(fontWeight: FontWeight.bold);
-    } else if (tag == 'em' || tag == 'i') {
-      nextStyle = nextStyle.copyWith(fontStyle: FontStyle.italic);
-    } else if (tag == 'u') {
-      nextStyle = nextStyle.copyWith(decoration: TextDecoration.underline);
-    }
-
-    if (tag == 'sup' || tag == 'sub') {
-      out.add(WidgetSpan(
-        alignment: PlaceholderAlignment.baseline,
-        baseline: TextBaseline.alphabetic,
-        child: Transform.translate(
-          offset: Offset(0, tag == 'sup' ? -2 : 2),
-          child: Text(node.text, style: nextStyle.copyWith(fontSize: fontSize * .68)),
-        ),
-      ));
-      return;
-    }
-
-    final classes = (node.attributes['class'] ?? '').split(RegExp(r'\s+'));
-    if (classes.contains('frac')) {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _fraction(node)));
-      return;
-    }
-    if (classes.contains('root')) {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _root(node)));
-      return;
-    }
-    if (classes.contains('limit')) {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _limit(node)));
-      return;
-    }
-    if (classes.contains('matrix') || tag == 'table') {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _renderTable(node)));
-      return;
-    }
-    if (classes.contains('vector')) {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _vector(node)));
-      return;
-    }
-    if (classes.contains('isotope')) {
-      out.add(WidgetSpan(alignment: PlaceholderAlignment.middle, child: _isotope(node)));
-      return;
-    }
-    if (classes.contains('chem') || classes.contains('physics-unit')) {
-      final scientificStyle = nextStyle.copyWith(fontFamily: 'Arial');
-      for (final child in node.nodes) {
-        _collectInline(child, out, scientificStyle);
-      }
-      return;
-    }
-    if (classes.contains('science-template')) {
-      out.add(TextSpan(text: node.text, style: nextStyle.copyWith(fontWeight: FontWeight.w600)));
-      return;
-    }
-
-    for (final child in node.nodes) {
-      _collectInline(child, out, nextStyle);
-    }
+  Set<String> _classes(dom.Element element) {
+    return (element.attributes['class'] ?? '')
+        .split(RegExp(r'\s+'))
+        .where((item) => item.isNotEmpty)
+        .toSet();
   }
 
-  Widget _fraction(dom.Element node) {
-    final num = node.querySelector('.num')?.text ?? 'a';
-    final den = node.querySelector('.den')?.text ?? 'b';
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(num, style: TextStyle(color: Colors.black, fontSize: fontSize * .9)),
-          Container(width: 28, height: 1, color: Colors.black),
-          Text(den, style: TextStyle(color: Colors.black, fontSize: fontSize * .9)),
-        ],
-      ),
-    );
-  }
-
-  Widget _root(dom.Element node) {
-    final body = node.querySelector('.body')?.text ?? 'x';
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('√', style: TextStyle(color: Colors.black, fontSize: fontSize * 1.15)),
-        Container(
-          decoration: const BoxDecoration(border: Border(top: BorderSide(color: Colors.black, width: .8))),
-          padding: const EdgeInsets.symmetric(horizontal: 3),
-          child: Text(body, style: TextStyle(color: Colors.black, fontSize: fontSize)),
-        ),
-      ],
-    );
-  }
-
-  Widget _limit(dom.Element node) {
-    final parts = node.children.where((e) => e.text.trim().isNotEmpty).toList();
-    if (parts.isEmpty) return Text('lim', style: TextStyle(color: Colors.black, fontSize: fontSize));
-    if (node.text.contains('Σ')) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(parts.last.text, style: TextStyle(color: Colors.black, fontSize: fontSize * .65)),
-          Text('Σ', style: TextStyle(color: Colors.black, fontSize: fontSize * 1.25)),
-          Text(parts.first.text, style: TextStyle(color: Colors.black, fontSize: fontSize * .65)),
-        ],
-      );
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('lim', style: TextStyle(color: Colors.black, fontSize: fontSize)),
-        Text(parts.length > 1 ? parts[1].text : parts.first.text, style: TextStyle(color: Colors.black, fontSize: fontSize * .65)),
-      ],
-    );
-  }
-
-  Widget _vector(dom.Element node) {
-    return Stack(
-      alignment: Alignment.topCenter,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(node.text, style: TextStyle(color: Colors.black, fontSize: fontSize)),
-        ),
-        const Positioned(top: -2, child: Text('→', style: TextStyle(color: Colors.black, fontSize: 8))),
-      ],
-    );
-  }
-
-  Widget _isotope(dom.Element node) {
-    final mass = node.querySelector('.mass')?.text ?? '14';
-    final element = node.querySelector('.element')?.text ?? 'C';
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(mass, style: TextStyle(color: Colors.black, fontSize: fontSize * .62)),
-        Text(element, style: TextStyle(color: Colors.black, fontSize: fontSize)),
-      ],
-    );
-  }
-
-  Widget _renderTable(dom.Element table) {
-    final rows = table.querySelectorAll('tr');
-    if (rows.isEmpty) return const SizedBox.shrink();
-    return Table(
-      defaultColumnWidth: const IntrinsicColumnWidth(),
-      border: TableBorder.all(color: Colors.black, width: .6),
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      children: [
-        for (final row in rows)
-          TableRow(
-            children: [
-              for (final cell in row.children.where((e) => e.localName == 'td' || e.localName == 'th'))
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                  child: Text(cell.text, textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: fontSize * .9)),
-                ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  String _decode(String text) {
-    return text.replaceAll('&nbsp;', ' ').replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&quot;', '"');
+  String _decode(String value) {
+    return value
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"');
   }
 }
