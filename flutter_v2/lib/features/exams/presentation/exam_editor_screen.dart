@@ -105,7 +105,9 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
+      enableDrag: false,
+      isDismissible: false,
+      showDragHandle: false,
       builder: (_) => const MexamQuestionEditorSheet(),
     );
     if (q != null) setState(() => _questions.add(q));
@@ -116,7 +118,9 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      showDragHandle: true,
+      enableDrag: false,
+      isDismissible: false,
+      showDragHandle: false,
       builder: (_) => MexamQuestionEditorSheet(initial: _questions[index]),
     );
     if (q != null) setState(() => _questions[index] = q);
