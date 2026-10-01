@@ -476,7 +476,7 @@ class _QuestionOnPaper extends StatelessWidget {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'س${number}/',
+                  'س$number/',
                   textAlign: TextAlign.right,
                   style: const TextStyle(
                     color: Colors.black,
