@@ -397,12 +397,12 @@ class _PaperHeader extends StatelessWidget {
 
   static String _durationLabel(int minutes) {
     if (minutes % 60 == 0) {
-      return minutes == 60 ? 'ساعة' : '\${minutes ~/ 60} ساعات';
+      return minutes == 60 ? 'ساعة' : '${minutes ~/ 60} ساعات';
     }
     if (minutes > 60) {
-      return '\${minutes ~/ 60} ساعة و \${minutes % 60} دقيقة';
+      return '${minutes ~/ 60} ساعة و ${minutes % 60} دقيقة';
     }
-    return '\$minutes دقيقة';
+    return '$minutes دقيقة';
   }
 }
 
@@ -483,7 +483,7 @@ class _InfoLine extends StatelessWidget {
               ),
               children: [
                 TextSpan(
-                  text: '\$label: ',
+                  text: '$label: ',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 TextSpan(text: value.isEmpty ? '—' : value),
