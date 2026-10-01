@@ -909,7 +909,6 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -1217,7 +1216,6 @@ class _EquationSheetState extends State<_EquationSheet> {
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -1426,7 +1424,6 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
             ),
           ),
         ),
-      ),
     );
   }
 
