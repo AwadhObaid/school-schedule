@@ -155,6 +155,11 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
         title: const Text('محرر السؤال — MExam'),
         actions: [
           IconButton(
+            tooltip: 'إعدادات السؤال',
+            onPressed: _saving ? null : _showQuestionSettings,
+            icon: const Icon(Icons.tune),
+          ),
+          IconButton(
             tooltip: 'حفظ السؤال',
             onPressed: _saving ? null : _save,
             icon: _saving
@@ -164,26 +169,213 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
         ],
       ),
       resizeToAvoidBottomInset: true,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
-          final optionsHeight = keyboardHeight > 0 ? 168.0 : 252.0;
-
-          return Column(
-            children: [
-              _typeBar(),
-              Expanded(
-                child: WebViewWidget(controller: _webView),
-              ),
-              SizedBox(
-                height: optionsHeight.clamp(0.0, constraints.maxHeight * 0.48),
-                child: _optionsPanel(),
-              ),
-            ],
-          );
-        },
+      body: SafeArea(
+        top: false,
+        child: WebViewWidget(controller: _webView),
       ),
     );
+  }
+
+class _QuestionSettings {
+  const _QuestionSettings({
+    required this.type,
+    required this.marks,
+    required this.correctOptionIndex,
+    required this.options,
+  });
+  final ExamQuestionType type;
+  final double marks;
+  final int? correctOptionIndex;
+  final List<String> options;
+}
+
+class _QuestionSettingsSheet extends StatefulWidget {
+  const _QuestionSettingsSheet({
+    required this.type,
+    required this.marks,
+    required this.correctOptionIndex,
+    required this.options,
+  });
+  final ExamQuestionType type;
+  final double marks;
+  final int? correctOptionIndex;
+  final List<String> options;
+
+  @override
+  State<_QuestionSettingsSheet> createState() => _QuestionSettingsSheetState();
+}
+
+class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
+  late ExamQuestionType _type;
+  late final TextEditingController _marks;
+  late int? _correctOptionIndex;
+  late final List<TextEditingController> _options;
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.type;
+    _marks = TextEditingController(text: widget.marks.toString());
+    _correctOptionIndex = widget.correctOptionIndex;
+    _options = widget.options.map(TextEditingController.new).toList();
+    if (_type == ExamQuestionType.multipleChoice && _options.length < 2) {
+      _options.add(TextEditingController());
+      _options.add(TextEditingController());
+    }
+  }
+
+  @override
+  void dispose() {
+    _marks.dispose();
+    for (final item in _options) {
+      item.dispose();
+    }
+    super.dispose();
+  }
+
+  static String _letter(int index) {
+    const letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
+    return index < letters.length ? letters[index] : (index + 1).toString();
+  }
+
+  void _save() {
+    Navigator.pop(
+      context,
+      _QuestionSettings(
+        type: _type,
+        marks: double.tryParse(_marks.text.trim()) ?? 1,
+        correctOptionIndex: _correctOptionIndex,
+        options: _type == ExamQuestionType.multipleChoice
+            ? _options.map((e) => e.text.trim()).toList()
+            : const <String>[],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 18),
+          children: [
+            const Text('إعدادات السؤال', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<ExamQuestionType>(
+              initialValue: _type,
+              decoration: const InputDecoration(
+                labelText: 'نوع السؤال',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final type in ExamQuestionType.values)
+                  DropdownMenuItem(value: type, child: Text(type.label)),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _type = value;
+                  if (_type != ExamQuestionType.multipleChoice) {
+                    _correctOptionIndex = null;
+                  } else if (_options.length < 2) {
+                    _options.add(TextEditingController());
+                    _options.add(TextEditingController());
+                  }
+                });
+              },
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _marks,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'درجة السؤال',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_type == ExamQuestionType.multipleChoice) ...[
+              const SizedBox(height: 14),
+              const Text('خيارات الإجابة', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              for (var index = 0; index < _options.length; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: TextField(
+                    controller: _options[index],
+                    decoration: InputDecoration(
+                      labelText: 'الخيار ' + _letter(index),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              OutlinedButton.icon(
+                onPressed: _options.length >= 6 ? null : () => setState(() => _options.add(TextEditingController())),
+                icon: const Icon(Icons.add),
+                label: const Text('إضافة خيار'),
+              ),
+              if (_options.isNotEmpty)
+                ...[
+                  const SizedBox(height: 8),
+                  const Text('الإجابة الصحيحة'),
+                  for (var index = 0; index < _options.length; index++)
+                    RadioListTile<int>(
+                      value: index,
+                      groupValue: _correctOptionIndex,
+                      onChanged: (value) => setState(() => _correctOptionIndex = value),
+                      title: Text(
+                        _letter(index) + ' — ' +
+                        (_options[index].text.isEmpty ? 'بدون نص' : _options[index].text),
+                      ),
+                      dense: true,
+                    ),
+                ],
+            ],
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check),
+              label: const Text('حفظ الإعدادات'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+  Future<void> _showQuestionSettings() async {
+    final result = await showModalBottomSheet<_QuestionSettings>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _QuestionSettingsSheet(
+        type: _type,
+        marks: double.tryParse(_marks.text.trim()) ?? 1,
+        correctOptionIndex: _correctOptionIndex,
+        options: _options.map((item) => item.text).toList(),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _type = result.type;
+      _marks.text = result.marks.toString();
+      _correctOptionIndex = result.correctOptionIndex;
+      for (final item in _options) {
+        item.dispose();
+      }
+      _options
+        ..clear()
+        ..addAll(result.options.map(TextEditingController.new));
+      if (_type == ExamQuestionType.multipleChoice && _options.length < 2) {
+        _options.add(TextEditingController());
+        _options.add(TextEditingController());
+      }
+    });
   }
 
   Widget _typeBar() {
@@ -313,7 +505,11 @@ sup{font-size:.72em;vertical-align:super}
 sub{font-size:.72em;vertical-align:sub}
 table{border-collapse:collapse;width:100%;margin:8px 0}
 td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
-#scienceTools{background:#0b1220}
+#scienceTools{background:#0b1220;display:none}
+#scienceTools.visible{display:flex}
+#modeBar{display:flex;gap:6px;padding:6px;background:#111827;direction:rtl;flex-shrink:0}
+#modeBar .mode{background:#334155;border:1px solid #64748b}
+#modeBar .mode.active{background:#0ea5e9}
 #scienceTools button{white-space:nowrap;flex:0 0 auto}
 .toolTitle{font-size:12px;font-weight:700;color:#cbd5e1;align-self:center;white-space:nowrap}
 .science-block{display:inline-flex;align-items:center;vertical-align:middle;margin:2px 4px;padding:2px 3px;border-radius:3px}
@@ -376,6 +572,10 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
   <button onclick="chemFormula()">كيمياء</button>
   <button onclick="chemReaction()">تفاعل</button>
 </div>
+<div id="modeBar">
+  <button class="mode active" onclick="setMode('text',this)">✍️ كتابة</button>
+  <button class="mode" onclick="setMode('science',this)">🔬 رياضيات وعلوم</button>
+</div>
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
 const editor=document.getElementById('editor');
@@ -398,6 +598,14 @@ function vector(){insertHtml('<span class="science-block vector">v</span>');}
 function multiLine(){insertHtml('<div class="science-block">y = ax + b<br>y = mx + c</div>');}
 function chemFormula(){insertHtml('<span class="science-block chem">H<sub>2</sub>O + CO<sub>2</sub></span>');}
 function chemReaction(){insertHtml('<span class="science-block chem">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span>');}
+function setMode(mode,button){
+  document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
+  button.classList.add('active');
+  const science=document.getElementById('scienceTools');
+  if(science) science.classList.toggle('visible',mode==='science');
+  editor.focus();
+  saveSel();
+}
 function mexamGetHTML(){const c=editor.cloneNode(true);c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==editor)e.removeAttribute('contenteditable')});return c.innerHTML;}
 function mexamSetHTML(h){editor.innerHTML=h||'<div><br></div>';saveSel();}
 function mexamFocus(){editor.focus();saveSel();}
