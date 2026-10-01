@@ -51,7 +51,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('حذف الاختبار'),
-        content: Text('هل تريد حذف الاختبار «' + exam.title + '»؟'),
+        content: Text.rich(
+          TextSpan(
+            text: 'هل تريد حذف الاختبار «',
+            children: [
+              TextSpan(text: exam.title),
+              const TextSpan(text: '»؟'),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -100,14 +108,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (_, index) {
                     final exam = _exams[index];
-                    final summary = exam.subject +
-                        ' • ' +
-                        (exam.className.isEmpty ? 'بدون صف' : exam.className) +
-                        ' • ' +
-                        exam.questions.length.toString() +
-                        ' سؤال • ' +
-                        exam.totalMarks.toString() +
-                        ' درجة';
+                    final summary = StringBuffer()
+                      ..write(exam.subject)
+                      ..write(' • ')
+                      ..write(exam.className.isEmpty ? 'بدون صف' : exam.className)
+                      ..write(' • ')
+                      ..write(exam.questions.length)
+                      ..write(' سؤال • ')
+                      ..write(exam.totalMarks)
+                      ..write(' درجة');
                     return Card(
                       child: ListTile(
                         leading: const CircleAvatar(
@@ -118,7 +127,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        subtitle: Text(summary),
+                        subtitle: Text(summary.toString()),
                         onTap: () => _edit(exam),
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) {
