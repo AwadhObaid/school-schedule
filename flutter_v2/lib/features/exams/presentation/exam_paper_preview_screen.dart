@@ -15,9 +15,11 @@ class ExamPaperPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pages = _paginate(exam.questions);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('معاينة ورقة الاختبار A4'),
+        title: Text('معاينة ورقة الاختبار A4 • ${pages.length} صفحة'),
         actions: [
           IconButton(
             tooltip: 'معلومات المعاينة',
@@ -28,32 +30,59 @@ class ExamPaperPreviewScreen extends StatelessWidget {
       ),
       body: Container(
         color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final width = constraints.maxWidth;
-                  return Container(
-                    width: width,
-                    color: Colors.white,
-                    child: AspectRatio(
-                      aspectRatio: 210 / 297,
-                      child: _PaperPage(
-                        exam: exam,
-                        pageNumber: 1,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth =
+                (constraints.maxWidth - 32).clamp(280.0, 900.0);
+            final pageHeight = availableWidth * 297 / 210;
+
+            return PageView.builder(
+              controller: PageController(),
+              itemCount: pages.length,
+              itemBuilder: (context, index) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Center(
+                    child: SizedBox(
+                      width: availableWidth,
+                      height: pageHeight,
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 2,
+                        child: _PaperPage(
+                          exam: exam,
+                          pageNumber: index + 1,
+                          totalPages: pages.length,
+                          questions: pages[index],
+                        ),
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );
+  }
+
+  List<List<ExamQuestion>> _paginate(List<ExamQuestion> questions) {
+    if (questions.isEmpty) return const <List<ExamQuestion>>[<ExamQuestion>[]];
+
+    // Temporary visual pagination for the A4 preview.
+    // Phase 15D will replace this with measured PDF pagination.
+    const capacity = 5;
+    final pages = <List<ExamQuestion>>[];
+
+    for (var i = 0; i < questions.length; i += capacity) {
+      final end = (i + capacity < questions.length)
+          ? i + capacity
+          : questions.length;
+      pages.add(List.unmodifiable(questions.sublist(i, end)));
+    }
+
+    return pages;
   }
 
   void _showInfo(BuildContext context) {
@@ -75,15 +104,19 @@ class _PaperPage extends StatelessWidget {
   const _PaperPage({
     required this.exam,
     required this.pageNumber,
+    required this.totalPages,
+    required this.questions,
   });
 
   final Exam exam;
   final int pageNumber;
+  final int totalPages;
+  final List<ExamQuestion> questions;
 
   @override
   Widget build(BuildContext context) {
     final template = exam.template;
-    final questions = exam.questions;
+    final template = exam.template;
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -107,6 +140,7 @@ class _PaperPage extends StatelessWidget {
             _PaperFooter(
               template: template,
               pageNumber: pageNumber,
+              totalPages: totalPages,
             ),
           ],
         ),
@@ -560,10 +594,12 @@ class _PaperFooter extends StatelessWidget {
   const _PaperFooter({
     required this.template,
     required this.pageNumber,
+    required this.totalPages,
   });
 
   final ExamPaperTemplate template;
   final int pageNumber;
+  final int totalPages;
 
   @override
   Widget build(BuildContext context) {
