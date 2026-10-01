@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:flutter/services.dart';
 
+import 'exam_official_font.dart';
+
 /// Assets extracted directly from the supplied official reference PDF.
 ///
 /// These are embedded in the application so the official header never depends
@@ -28,7 +30,7 @@ bool _officialExamFontLoaded = false;
 Future<void> loadOfficialExamFont() async {
   if (_officialExamFontLoaded) return;
   final bytes = Uint8List.fromList(
-    GZipDecoder().decodeBytes(base64Decode(_officialAmiriGzipBase64.replaceAll('\n', '').replaceAll('\r', ''))),
+    GZipDecoder().decodeBytes(base64Decode(officialAmiriGzipBase64)),
   );
   final loader = FontLoader(officialExamFontFamily);
   loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
