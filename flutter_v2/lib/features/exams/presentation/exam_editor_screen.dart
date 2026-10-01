@@ -357,7 +357,7 @@ class _QuestionDialogState extends State<_QuestionDialog> {
                             child: TextField(
                               controller: _options[i],
                               decoration: InputDecoration(
-                                labelText: 'الخيار ' + (i + 1).toString(),
+                                labelText: 'الخيار ${i + 1}',
                               ),
                             ),
                           ),
