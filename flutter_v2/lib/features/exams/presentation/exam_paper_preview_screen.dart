@@ -116,7 +116,6 @@ class _PaperPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final template = exam.template;
-    final template = exam.template;
 
     return Directionality(
       textDirection: TextDirection.rtl,
