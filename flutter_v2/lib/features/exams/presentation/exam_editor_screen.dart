@@ -747,13 +747,9 @@ class _QuestionEditorSheetState extends State<_QuestionEditorSheet> {
     final isChoice = _type == ExamQuestionType.multipleChoice;
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .92,
-          child: Scaffold(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .92,
+        child: Scaffold(
             appBar: AppBar(
               title: Text(
                 widget.initial == null ? 'إضافة سؤال' : 'تعديل السؤال',
@@ -1142,13 +1138,9 @@ class _EquationSheetState extends State<_EquationSheet> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .9,
-          child: Scaffold(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .9,
+        child: Scaffold(
             appBar: AppBar(
               title: const Text('محرر المعادلات'),
               automaticallyImplyLeading: false,
@@ -1329,13 +1321,9 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .9,
-          child: Scaffold(
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .9,
+        child: Scaffold(
             appBar: AppBar(
               title: const Text('إعداد ورقة الاختبار'),
               automaticallyImplyLeading: false,
