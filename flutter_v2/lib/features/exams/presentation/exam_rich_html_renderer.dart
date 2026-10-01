@@ -130,7 +130,10 @@ class ExamRichHtmlRenderer extends StatelessWidget {
       return;
     }
     if (classes.contains('chem') || classes.contains('physics-unit')) {
-      out.add(TextSpan(text: node.text, style: nextStyle.copyWith(fontFamily: 'Arial')));
+      final scientificStyle = nextStyle.copyWith(fontFamily: 'Arial');
+      for (final child in node.nodes) {
+        _collectInline(child, out, scientificStyle);
+      }
       return;
     }
     if (classes.contains('science-template')) {
