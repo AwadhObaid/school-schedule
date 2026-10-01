@@ -54,7 +54,7 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
     _type = widget.type;
     _marks = TextEditingController(text: widget.marks.toString());
     _correctOptionIndex = widget.correctOptionIndex;
-    _options = widget.options.map(TextEditingController.new).toList();
+    _options = widget.options.map((value) => TextEditingController(text: value)).toList();
     if (_type == ExamQuestionType.multipleChoice && _options.length < 2) {
       _options.add(TextEditingController());
       _options.add(TextEditingController());
@@ -371,7 +371,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
       }
       _options
         ..clear()
-        ..addAll(result.options.map(TextEditingController.new));
+        ..addAll(result.options.map((value) => TextEditingController(text: value)));
       if (_type == ExamQuestionType.multipleChoice && _options.length < 2) {
         _options.add(TextEditingController());
         _options.add(TextEditingController());
