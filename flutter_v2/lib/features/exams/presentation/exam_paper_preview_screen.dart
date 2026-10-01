@@ -57,8 +57,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     BuildContext context,
     PdfPageFormat format,
   ) async {
-    await loadOfficialExamFont();
-
     final pdf = pw.Document(
       version: PdfVersion.pdf_1_5,
       compress: true,
@@ -233,8 +231,8 @@ abstract final class _OfficialPaperGeometry {
 /// values with adaptive Material typography; the exam sheet is a fixed
 /// printable document, not a normal responsive screen.
 abstract final class _OfficialPaperTypography {
-  static const double headerRegular = 9.5;
-  static const double headerTitle = 10.0;
+  static const double headerRegular = 8.7;
+  static const double headerTitle = 9.2;
   static const double body = 10.0;
   static const double footer = 8.5;
 }
@@ -307,16 +305,17 @@ class _PaperHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = exam.template;
 
-    return Container(
+    return SizedBox(
       height: _OfficialPaperGeometry.headerHeight,
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: Colors.black,
-          width: _OfficialPaperGeometry.headerBorderWidth,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.black,
+            width: _OfficialPaperGeometry.headerBorderWidth,
+          ),
         ),
-      ),
-      child: IntrinsicHeight(
         child: Row(
+          textDirection: TextDirection.rtl,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
@@ -324,17 +323,18 @@ class _PaperHeader extends StatelessWidget {
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
+                    SizedBox(
+                      height: 24,
                       child: Image.memory(
                         officialMinistryWordmarkImage,
-                        width: 118,
-                        height: 30,
+                        width: 100,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
                       ),
                     ),
+                    const SizedBox(height: 1),
                     _HeaderText(t.ministry, bold: true),
                     _HeaderText(t.educationOffice),
                     _HeaderText(t.educationAdministration),
@@ -348,18 +348,22 @@ class _PaperHeader extends StatelessWidget {
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
-                    Image.memory(
-                      officialYemenEmblemImage,
-                      width: 108,
-                      height: 50,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+                    SizedBox(
+                      height: 37,
+                      child: Image.memory(
+                        officialYemenEmblemImage,
+                        width: 96,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1),
                     _HeaderText(
                       t.examTitle.isEmpty ? exam.title : t.examTitle,
                       bold: true,
+                      fontSize: _OfficialPaperTypography.headerTitle,
                     ),
                     if (t.academicYear.trim().isNotEmpty)
                       _HeaderText(t.academicYear),
@@ -372,7 +376,7 @@ class _PaperHeader extends StatelessWidget {
               child: _HeaderCell(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                     _InfoLine(t.subjectLabel, exam.subject),
                     _InfoLine(t.gradeLabel, exam.className),
@@ -393,12 +397,12 @@ class _PaperHeader extends StatelessWidget {
 
   static String _durationLabel(int minutes) {
     if (minutes % 60 == 0) {
-      return minutes == 60 ? 'ساعة' : '${minutes ~/ 60} ساعات';
+      return minutes == 60 ? 'ساعة' : '\${minutes ~/ 60} ساعات';
     }
     if (minutes > 60) {
-      return '${minutes ~/ 60} ساعة و ${minutes % 60} دقيقة';
+      return '\${minutes ~/ 60} ساعة و \${minutes % 60} دقيقة';
     }
-    return '$minutes دقيقة';
+    return '\$minutes دقيقة';
   }
 }
 
@@ -410,35 +414,46 @@ class _HeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: const BoxDecoration(
         border: Border(
           left: BorderSide(color: Colors.black, width: 1),
         ),
       ),
+      alignment: Alignment.center,
       child: child,
     );
   }
 }
 
 class _HeaderText extends StatelessWidget {
-  const _HeaderText(this.text, {this.bold = false});
+  const _HeaderText(
+    this.text, {
+    this.bold = false,
+    this.fontSize = _OfficialPaperTypography.headerRegular,
+  });
 
   final String text;
   final bool bold;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text.isEmpty ? ' ' : text,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: Colors.black,
-        fontSize: _OfficialPaperTypography.headerRegular,
-        fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-        fontFamily: officialExamFontFamily,
+    return SizedBox(
+      width: double.infinity,
+      child: Text(
+        text.isEmpty ? ' ' : text,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: fontSize,
+          height: 1.05,
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
     );
   }
@@ -452,23 +467,29 @@ class _InfoLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: RichText(
-        textAlign: TextAlign.right,
-        text: TextSpan(
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 9.5,
-            fontFamily: officialExamFontFamily,
-          ),
-          children: [
-            TextSpan(
-              text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+    return Expanded(
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: RichText(
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.right,
+            maxLines: 1,
+            text: TextSpan(
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: _OfficialPaperTypography.headerRegular,
+                height: 1.0,
+              ),
+              children: [
+                TextSpan(
+                  text: '\$label: ',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: value.isEmpty ? '—' : value),
+              ],
             ),
-            TextSpan(text: value.isEmpty ? '—' : value),
-          ],
+          ),
         ),
       ),
     );
