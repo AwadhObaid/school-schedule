@@ -13,169 +13,6 @@ class MexamQuestionEditorSheet extends StatefulWidget {
   State<MexamQuestionEditorSheet> createState() => _MexamQuestionEditorSheetState();
 }
 
-class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
-  late final WebViewController _webView;
-  late final TextEditingController _marks;
-  ExamQuestionType _type = ExamQuestionType.multipleChoice;
-  int? _correctOptionIndex;
-  final List<TextEditingController> _options = <TextEditingController>[];
-  bool _ready = false;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final q = widget.initial;
-    _type = q?.type ?? ExamQuestionType.multipleChoice;
-    _correctOptionIndex = q?.correctOptionIndex;
-    _marks = TextEditingController(text: (q?.marks ?? 1).toString());
-
-    for (final value in q?.options ?? const <String>[]) {
-      _options.add(TextEditingController(text: value));
-    }
-    if (_options.isEmpty && _type == ExamQuestionType.multipleChoice) {
-      _options.add(TextEditingController());
-      _options.add(TextEditingController());
-    }
-
-    _webView = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFF0F172A))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) async {
-            _ready = true;
-            final html = widget.initial?.htmlContent ?? _legacyHtml(widget.initial);
-            await _webView.runJavaScript('mexamSetHTML(' + jsonEncode(html) + ');');
-            await _webView.runJavaScript('mexamFocus();');
-          },
-        ),
-      )
-      ..addJavaScriptChannel(
-        'MexamBridge',
-        onMessageReceived: (message) => _receiveHtml(message.message),
-      )
-      ..loadHtmlString(_mexamHtml);
-  }
-
-  @override
-  void dispose() {
-    _marks.dispose();
-    for (final item in _options) {
-      item.dispose();
-    }
-    super.dispose();
-  }
-
-  String _legacyHtml(ExamQuestion? q) {
-    if (q == null || q.prompt.trim().isEmpty) return '';
-    return '<div>' + const HtmlEscape().convert(q.prompt.trim()) + '</div>';
-  }
-
-  Future<void> _save() async {
-    if (!_ready || _saving) return;
-    setState(() => _saving = true);
-    await _webView.runJavaScript('MexamBridge.postMessage(mexamGetHTML());');
-  }
-
-  void _receiveHtml(String html) {
-    final clean = html.trim();
-    if (clean.isEmpty || clean == '<div><br></div>') {
-      setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('اكتب نص السؤال أولاً.')),
-      );
-      return;
-    }
-
-    final options = _type == ExamQuestionType.multipleChoice
-        ? _options.map((item) => item.text.trim()).where((item) => item.isNotEmpty).toList()
-        : const <String>[];
-
-    Navigator.of(context).pop(
-      ExamQuestion(
-        id: widget.initial?.id ?? ('question_' + DateTime.now().microsecondsSinceEpoch.toString()),
-        type: _type,
-        prompt: _plainText(clean),
-        htmlContent: clean,
-        options: options,
-        correctOptionIndex: _type == ExamQuestionType.multipleChoice ? _correctOptionIndex : null,
-        answer: widget.initial?.answer ?? '',
-        content: widget.initial?.content ?? const [],
-        marks: double.tryParse(_marks.text.trim()) ?? 1,
-      ),
-    );
-  }
-
-  String _plainText(String html) {
-    return html
-        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
-        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n')
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .trim();
-  }
-
-  void _setType(ExamQuestionType type) {
-    setState(() {
-      _type = type;
-      if (type != ExamQuestionType.multipleChoice) {
-        _correctOptionIndex = null;
-      } else if (_options.isEmpty) {
-        _options.add(TextEditingController());
-        _options.add(TextEditingController());
-      }
-    });
-  }
-
-  void _addOption() {
-    if (_options.length >= 6) return;
-    setState(() => _options.add(TextEditingController()));
-  }
-
-  void _removeOption(int index) {
-    if (_options.length <= 2) return;
-    final item = _options.removeAt(index);
-    item.dispose();
-    if (_correctOptionIndex == index) {
-      _correctOptionIndex = null;
-    } else if (_correctOptionIndex != null && _correctOptionIndex! > index) {
-      _correctOptionIndex = _correctOptionIndex! - 1;
-    }
-    setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('محرر السؤال — MExam'),
-        actions: [
-          IconButton(
-            tooltip: 'إعدادات السؤال',
-            onPressed: _saving ? null : _showQuestionSettings,
-            icon: const Icon(Icons.tune),
-          ),
-          IconButton(
-            tooltip: 'حفظ السؤال',
-            onPressed: _saving ? null : _save,
-            icon: _saving
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.check),
-          ),
-        ],
-      ),
-      resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        top: false,
-        child: WebViewWidget(controller: _webView),
-      ),
-    );
-  }
-
 class _QuestionSettings {
   const _QuestionSettings({
     required this.type,
@@ -345,6 +182,170 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
     );
   }
 }
+
+
+class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
+  late final WebViewController _webView;
+  late final TextEditingController _marks;
+  ExamQuestionType _type = ExamQuestionType.multipleChoice;
+  int? _correctOptionIndex;
+  final List<TextEditingController> _options = <TextEditingController>[];
+  bool _ready = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final q = widget.initial;
+    _type = q?.type ?? ExamQuestionType.multipleChoice;
+    _correctOptionIndex = q?.correctOptionIndex;
+    _marks = TextEditingController(text: (q?.marks ?? 1).toString());
+
+    for (final value in q?.options ?? const <String>[]) {
+      _options.add(TextEditingController(text: value));
+    }
+    if (_options.isEmpty && _type == ExamQuestionType.multipleChoice) {
+      _options.add(TextEditingController());
+      _options.add(TextEditingController());
+    }
+
+    _webView = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0xFF0F172A))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) async {
+            _ready = true;
+            final html = widget.initial?.htmlContent ?? _legacyHtml(widget.initial);
+            await _webView.runJavaScript('mexamSetHTML(' + jsonEncode(html) + ');');
+            await _webView.runJavaScript('mexamFocus();');
+          },
+        ),
+      )
+      ..addJavaScriptChannel(
+        'MexamBridge',
+        onMessageReceived: (message) => _receiveHtml(message.message),
+      )
+      ..loadHtmlString(_mexamHtml);
+  }
+
+  @override
+  void dispose() {
+    _marks.dispose();
+    for (final item in _options) {
+      item.dispose();
+    }
+    super.dispose();
+  }
+
+  String _legacyHtml(ExamQuestion? q) {
+    if (q == null || q.prompt.trim().isEmpty) return '';
+    return '<div>' + const HtmlEscape().convert(q.prompt.trim()) + '</div>';
+  }
+
+  Future<void> _save() async {
+    if (!_ready || _saving) return;
+    setState(() => _saving = true);
+    await _webView.runJavaScript('MexamBridge.postMessage(mexamGetHTML());');
+  }
+
+  void _receiveHtml(String html) {
+    final clean = html.trim();
+    if (clean.isEmpty || clean == '<div><br></div>') {
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اكتب نص السؤال أولاً.')),
+      );
+      return;
+    }
+
+    final options = _type == ExamQuestionType.multipleChoice
+        ? _options.map((item) => item.text.trim()).where((item) => item.isNotEmpty).toList()
+        : const <String>[];
+
+    Navigator.of(context).pop(
+      ExamQuestion(
+        id: widget.initial?.id ?? ('question_' + DateTime.now().microsecondsSinceEpoch.toString()),
+        type: _type,
+        prompt: _plainText(clean),
+        htmlContent: clean,
+        options: options,
+        correctOptionIndex: _type == ExamQuestionType.multipleChoice ? _correctOptionIndex : null,
+        answer: widget.initial?.answer ?? '',
+        content: widget.initial?.content ?? const [],
+        marks: double.tryParse(_marks.text.trim()) ?? 1,
+      ),
+    );
+  }
+
+  String _plainText(String html) {
+    return html
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
+  }
+
+  void _setType(ExamQuestionType type) {
+    setState(() {
+      _type = type;
+      if (type != ExamQuestionType.multipleChoice) {
+        _correctOptionIndex = null;
+      } else if (_options.isEmpty) {
+        _options.add(TextEditingController());
+        _options.add(TextEditingController());
+      }
+    });
+  }
+
+  void _addOption() {
+    if (_options.length >= 6) return;
+    setState(() => _options.add(TextEditingController()));
+  }
+
+  void _removeOption(int index) {
+    if (_options.length <= 2) return;
+    final item = _options.removeAt(index);
+    item.dispose();
+    if (_correctOptionIndex == index) {
+      _correctOptionIndex = null;
+    } else if (_correctOptionIndex != null && _correctOptionIndex! > index) {
+      _correctOptionIndex = _correctOptionIndex! - 1;
+    }
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('محرر السؤال — MExam'),
+        actions: [
+          IconButton(
+            tooltip: 'إعدادات السؤال',
+            onPressed: _saving ? null : _showQuestionSettings,
+            icon: const Icon(Icons.tune),
+          ),
+          IconButton(
+            tooltip: 'حفظ السؤال',
+            onPressed: _saving ? null : _save,
+            icon: _saving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.check),
+          ),
+        ],
+      ),
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        top: false,
+        child: WebViewWidget(controller: _webView),
+      ),
+    );
+  }
 
   Future<void> _showQuestionSettings() async {
     final result = await showModalBottomSheet<_QuestionSettings>(
