@@ -7,6 +7,7 @@ import '../../../core/models/exam.dart';
 import '../../../core/models/exam_content_block.dart';
 import '../../../core/models/exam_paper_template.dart';
 import '../../../core/storage/exam_store.dart';
+import 'exam_paper_preview_screen.dart';
 
 class ExamEditorScreen extends StatefulWidget {
   const ExamEditorScreen({
@@ -125,6 +126,35 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     }
   }
 
+  Exam _draftExam() {
+    final now = DateTime.now();
+    final duration = int.tryParse(_duration.text.trim()) ?? 60;
+
+    return Exam(
+      id: widget.initial?.id ?? 'draft_exam',
+      title: _title.text.trim().isEmpty ? 'اختبار جديد' : _title.text.trim(),
+      subject: _subject.text.trim(),
+      className: _className.text.trim(),
+      weekday: _weekday,
+      periodId: _periodId,
+      durationMinutes: duration > 0 ? duration : 60,
+      template: _template,
+      questions: List.unmodifiable(_questions),
+      createdAt: widget.initial?.createdAt ?? now,
+      updatedAt: now,
+    );
+  }
+
+  void _previewPaper() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExamPaperPreviewScreen(
+          exam: _draftExam(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final periods = widget.controller.teacherPeriodCatalog;
@@ -133,6 +163,11 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       appBar: AppBar(
         title: Text(widget.initial == null ? 'اختبار جديد' : 'تعديل الاختبار'),
         actions: [
+          IconButton(
+            tooltip: 'معاينة ورقة A4',
+            onPressed: _previewPaper,
+            icon: const Icon(Icons.preview_outlined),
+          ),
           TextButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.save_outlined),
