@@ -163,12 +163,25 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _typeBar(),
-          Expanded(child: WebViewWidget(controller: _webView)),
-          _optionsPanel(),
-        ],
+      resizeToAvoidBottomInset: true,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final keyboardHeight = MediaQuery.viewInsetsOf(context).bottom;
+          final optionsHeight = keyboardHeight > 0 ? 168.0 : 252.0;
+
+          return Column(
+            children: [
+              _typeBar(),
+              Expanded(
+                child: WebViewWidget(controller: _webView),
+              ),
+              SizedBox(
+                height: optionsHeight.clamp(0.0, constraints.maxHeight * 0.48),
+                child: _optionsPanel(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -176,13 +189,16 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
   Widget _typeBar() {
     return Material(
       color: const Color(0xFF1E293B),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: [
-            const Text('نوع السؤال:', style: TextStyle(color: Colors.white70)),
-            const SizedBox(width: 6),
+      child: SizedBox(
+        height: 48,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('نوع السؤال:', style: TextStyle(color: Colors.white70)),
+              const SizedBox(width: 6),
             for (final type in ExamQuestionType.values)
               Padding(
                 padding: const EdgeInsetsDirectional.only(end: 6),
@@ -192,7 +208,8 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
                   onSelected: (_) => _setType(type),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -204,8 +221,10 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(10),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(10, 7, 10, 10),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -278,11 +297,12 @@ const String _mexamHtml = r'''<!doctype html>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f172a;color:#f8fafc;font-family:Arial,'Noto Naskh Arabic',sans-serif}
 body{display:flex;flex-direction:column}
-#toolbar,#symbols{display:flex;gap:5px;flex-wrap:wrap;padding:7px;background:#334155;direction:rtl;flex-shrink:0}
-#symbols{flex-wrap:nowrap;overflow-x:auto;background:#1e293b}
-button{background:#475569;color:#fff;border:1px solid #64748b;border-radius:5px;padding:6px 9px;font-weight:700;font-size:13px;min-width:36px}
+#toolbar,#symbols,#scienceTools{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px;background:#334155;direction:rtl;flex-shrink:0;min-height:48px;align-items:center}
+#symbols{background:#1e293b}
+
+button{background:#475569;color:#fff;border:1px solid #64748b;border-radius:5px;padding:6px 9px;font-weight:700;font-size:13px;min-width:36px;height:36px;flex:0 0 auto}
 button:active{background:#0ea5e9}
-#editor{flex:1;overflow:auto;margin:10px;padding:14px 12px 180px;background:#1e293b;border:1px solid #475569;border-radius:6px;outline:none;font-size:18px;line-height:1.9;text-align:right;direction:rtl}
+#editor{flex:1;min-height:0;overflow:auto;margin:8px;padding:12px 10px 180px;background:#1e293b;border:1px solid #475569;border-radius:6px;outline:none;font-size:18px;line-height:1.9;text-align:right;direction:rtl}
 #editor:focus{border-color:#0ea5e9}
 .eq-frac{display:inline-flex;flex-direction:column;vertical-align:middle;align-items:center;margin:0 4px}
 .eq-num{border-bottom:2px solid currentColor;padding:0 5px;min-width:20px;text-align:center}
@@ -293,8 +313,8 @@ sup{font-size:.72em;vertical-align:super}
 sub{font-size:.72em;vertical-align:sub}
 table{border-collapse:collapse;width:100%;margin:8px 0}
 td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
-#scienceTools{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:7px;background:#0b1220;direction:rtl;flex-shrink:0}
-#scienceTools button{white-space:nowrap}
+#scienceTools{background:#0b1220}
+#scienceTools button{white-space:nowrap;flex:0 0 auto}
 .toolTitle{font-size:12px;font-weight:700;color:#cbd5e1;align-self:center;white-space:nowrap}
 .science-block{display:inline-flex;align-items:center;vertical-align:middle;margin:2px 4px;padding:2px 3px;border-radius:3px}
 .frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.1}
