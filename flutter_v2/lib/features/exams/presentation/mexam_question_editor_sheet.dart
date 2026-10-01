@@ -537,6 +537,16 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 .vector{display:inline-block;position:relative;padding-top:3px}
 .vector:before{content:'→';position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:.8em}
 .chem{font-family:Arial,sans-serif;direction:ltr;unicode-bidi:isolate}
+.chem sub,.chem sup{font-size:.68em;line-height:0}
+.chem .charge{font-size:.68em;vertical-align:super;position:relative;top:-.15em}
+.isotope{display:inline-flex;align-items:flex-start;direction:ltr;font-family:Arial,sans-serif}
+.isotope .mass{font-size:.62em;line-height:1;min-width:12px}
+.isotope .element{font-size:1em}
+.science-template{display:inline-block;direction:ltr;padding:2px 6px;margin:2px;border-radius:4px}
+.physics-unit{font-family:Arial,sans-serif;direction:ltr;unicode-bidi:isolate}
+.science-table{display:inline-table;width:auto;margin:4px}
+.science-table td{min-width:42px;padding:5px 8px;border:1px solid #94a3b8;text-align:center;outline:none}
+.science-table td:focus{outline:1px dashed #38bdf8;background:rgba(56,189,248,.08)}
 </style>
 </head>
 <body>
@@ -587,8 +597,16 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
   <button onclick="determinant()">محدد</button>
   <button onclick="vector()">متجه</button>
   <button onclick="multiLine()">أسطر</button>
-  <button onclick="chemFormula()">كيمياء</button>
-  <button onclick="chemReaction()">تفاعل</button>
+  <button onclick="chemFormula()">صيغة كيميائية</button>
+  <button onclick="chemReaction()">تفاعل كيميائي</button>
+  <button onclick="chemIon()">أيون</button>
+  <button onclick="isotope()">نظير</button>
+  <button onclick="chemArrow()">⇌ تفاعل</button>
+  <button onclick="physicsVector()">متجه فيزيائي</button>
+  <button onclick="physicsUnit()">وحدة</button>
+  <button onclick="quadratic()">تربيعية</button>
+  <button onclick="pythagoras()">فيثاغورس</button>
+  <button onclick="table2()">جدول 2×2</button>
 </div>
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
@@ -667,6 +685,30 @@ function chemFormula(){
 }
 function chemReaction(){
   insertScience('<span class="science-block chem" data-science-id=""><span class="block-editable" contenteditable="true">2H<sub>2</sub> + O<sub>2</sub> → 2H<sub>2</sub>O</span></span>','.block-editable');
+}
+function chemIon(){
+  insertScience('<span class="science-block chem" data-science-id=""><span class="block-editable" contenteditable="true">SO<sub>4</sub><sup class="charge">2−</sup></span></span>','.block-editable');
+}
+function isotope(){
+  insertScience('<span class="science-block isotope" data-science-id=""><span class="mass block-editable" contenteditable="true">14</span><span class="element block-editable" contenteditable="true">C</span></span>','.element');
+}
+function chemArrow(){
+  insertScience('<span class="science-block chem" data-science-id=""><span class="block-editable" contenteditable="true">A ⇌ B</span></span>','.block-editable');
+}
+function physicsVector(){
+  insertScience('<span class="science-block vector" data-science-id=""><span class="block-editable" contenteditable="true">F</span></span>','.block-editable');
+}
+function physicsUnit(){
+  insertScience('<span class="science-block physics-unit" data-science-id=""><span class="block-editable" contenteditable="true">m·s⁻²</span></span>','.block-editable');
+}
+function quadratic(){
+  insertScience('<span class="science-template" data-science-id="">ax² + bx + c = 0</span>');
+}
+function pythagoras(){
+  insertScience('<span class="science-template" data-science-id="">a² + b² = c²</span>');
+}
+function table2(){
+  insertScience('<table class="science-table" data-science-id=""><tr><td contenteditable="true">القيمة</td><td contenteditable="true">الوحدة</td></tr><tr><td contenteditable="true"></td><td contenteditable="true"></td></tr></table><span> </span>','td');
 }
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
