@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/app_controller.dart';
+import '../../exams/presentation/exams_screen.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../my_classes/presentation/my_classes_screen.dart';
 import '../../schedule/presentation/schedule_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({
-    required this.controller,
-    super.key,
-  });
-
+  const AppShell({required this.controller, super.key});
   final AppController controller;
 
   @override
@@ -24,7 +21,7 @@ class _AppShellState extends State<AppShell> {
   Future<void> _select(int index) async {
     if (_index == index) return;
 
-    if (index == 3) {
+    if (index == 4) {
       final allowed = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -32,7 +29,6 @@ class _AppShellState extends State<AppShell> {
           controller: widget.controller,
         ),
       );
-
       if (!mounted || allowed != true) return;
     }
 
@@ -44,30 +40,22 @@ class _AppShellState extends State<AppShell> {
     final pages = <Widget>[
       HomeScreen(
         controller: widget.controller,
-        onOpenMyClasses: () {
-          _select(1);
-        },
-        onOpenSettings: () {
-          _select(3);
-        },
+        onOpenMyClasses: () => _select(1),
+        onOpenSettings: () => _select(4),
       ),
       MyClassesScreen(controller: widget.controller),
       ScheduleScreen(controller: widget.controller),
+      ExamsScreen(controller: widget.controller),
       SettingsScreen(controller: widget.controller),
     ];
 
     return Scaffold(
       body: SafeArea(
-        child: IndexedStack(
-          index: _index,
-          children: pages,
-        ),
+        child: IndexedStack(index: _index, children: pages),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (index) {
-          _select(index);
-        },
+        onDestinationSelected: _select,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -85,6 +73,11 @@ class _AppShellState extends State<AppShell> {
             label: 'الجدول',
           ),
           NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment_rounded),
+            label: 'الاختبارات',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
             label: 'الإعدادات',
@@ -96,10 +89,7 @@ class _AppShellState extends State<AppShell> {
 }
 
 class _SettingsPinDialog extends StatefulWidget {
-  const _SettingsPinDialog({
-    required this.controller,
-  });
-
+  const _SettingsPinDialog({required this.controller});
   final AppController controller;
 
   @override
@@ -148,17 +138,10 @@ class _SettingsPinDialogState extends State<_SettingsPinDialog> {
   }
 
   void _submit() {
-    final valid = widget.controller.verifySettingsPin(
-      _pinController.text.trim(),
-    );
-
-    if (valid) {
+    if (widget.controller.verifySettingsPin(_pinController.text.trim())) {
       Navigator.pop(context, true);
       return;
     }
-
-    setState(() {
-      _errorText = 'رمز الدخول غير صحيح';
-    });
+    setState(() => _errorText = 'رمز الدخول غير صحيح');
   }
 }
