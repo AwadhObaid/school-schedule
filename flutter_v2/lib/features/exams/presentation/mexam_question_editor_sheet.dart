@@ -492,6 +492,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f172a;col
 body{display:flex;flex-direction:column}
 #toolbar,#symbols,#scienceTools{display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px;background:#334155;direction:rtl;flex-shrink:0;min-height:48px;align-items:center}
 #symbols{background:#1e293b}
+#symbols{display:none}
+body.text-mode #symbols{display:flex}
+body.science-mode #toolbar{display:none}
 
 button{background:#475569;color:#fff;border:1px solid #64748b;border-radius:5px;padding:6px 9px;font-weight:700;font-size:13px;min-width:36px;height:36px;flex:0 0 auto}
 button:active{background:#0ea5e9}
@@ -508,9 +511,10 @@ table{border-collapse:collapse;width:100%;margin:8px 0}
 td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 #scienceTools{background:#0b1220;display:none}
 #scienceTools.visible{display:flex}
-#modeBar{display:flex;gap:6px;padding:6px;background:#111827;direction:rtl;flex-shrink:0}
-#modeBar .mode{background:#334155;border:1px solid #64748b}
+#modeBar{display:flex;gap:6px;padding:6px;background:#111827;direction:rtl;flex-shrink:0;border-bottom:1px solid #334155}
+#modeBar .mode{background:#334155;border:1px solid #64748b;min-width:0;padding:7px 14px}
 #modeBar .mode.active{background:#0ea5e9}
+#editor{margin-top:8px}
 #scienceTools button{white-space:nowrap;flex:0 0 auto}
 .toolTitle{font-size:12px;font-weight:700;color:#cbd5e1;align-self:center;white-space:nowrap}
 .science-block{display:inline-flex;align-items:center;vertical-align:middle;margin:2px 4px;padding:2px 3px;border-radius:3px}
@@ -529,6 +533,10 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 </style>
 </head>
 <body>
+<div id="modeBar">
+  <button class="mode active" onclick="setMode('text',this)">✍️ كتابة</button>
+  <button class="mode" onclick="setMode('science',this)">🔬 رياضيات وعلوم</button>
+</div>
 <div id="toolbar">
 <button onclick="cmd('bold')">B</button>
 <button onclick="cmd('italic')">I</button>
@@ -573,10 +581,6 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
   <button onclick="chemFormula()">كيمياء</button>
   <button onclick="chemReaction()">تفاعل</button>
 </div>
-<div id="modeBar">
-  <button class="mode active" onclick="setMode('text',this)">✍️ كتابة</button>
-  <button class="mode" onclick="setMode('science',this)">🔬 رياضيات وعلوم</button>
-</div>
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
 const editor=document.getElementById('editor');
@@ -602,11 +606,14 @@ function chemReaction(){insertHtml('<span class="science-block chem">2H<sub>2</s
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
   button.classList.add('active');
+  document.body.classList.toggle('science-mode',mode==='science');
+  document.body.classList.toggle('text-mode',mode==='text');
   const science=document.getElementById('scienceTools');
   if(science) science.classList.toggle('visible',mode==='science');
   editor.focus();
   saveSel();
 }
+document.body.classList.add('text-mode');
 function mexamGetHTML(){const c=editor.cloneNode(true);c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==editor)e.removeAttribute('contenteditable')});return c.innerHTML;}
 function mexamSetHTML(h){editor.innerHTML=h||'<div><br></div>';saveSel();}
 function mexamFocus(){editor.focus();saveSel();}
