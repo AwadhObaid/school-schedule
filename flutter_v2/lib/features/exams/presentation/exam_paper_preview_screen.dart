@@ -215,6 +215,34 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   }
 }
 
+/// Official A4 geometry derived from the supplied reference paper.
+/// The source page is A4 portrait (210 × 297 mm = 595.28 × 841.89 pt).
+/// Keep these values centralized so the official sheet is not altered
+/// accidentally by responsive UI changes.
+abstract final class _OfficialPaperGeometry {
+  static const double a4Width = 595.28;
+  static const double a4Height = 841.89;
+
+  // Printable frame measured from the supplied reference layout.
+  static const double outerMargin = 15.3;
+  static const double frameBorderWidth = 2.25;
+  static const double innerPaddingHorizontal = 13.45;
+  static const double innerPaddingTop = 13.45;
+  static const double innerPaddingBottom = 10.0;
+
+  static const double headerBorderWidth = 1.2;
+}
+
+/// Typography scale used by the official header. Do not replace these
+/// values with adaptive Material typography; the exam sheet is a fixed
+/// printable document, not a normal responsive screen.
+abstract final class _OfficialPaperTypography {
+  static const double headerRegular = 9.5;
+  static const double headerTitle = 10.0;
+  static const double body = 10.0;
+  static const double footer = 8.5;
+}
+
 class _PaperPage extends StatelessWidget {
   const _PaperPage({
     required this.exam,
@@ -235,12 +263,17 @@ class _PaperPage extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Padding(
-        padding: const EdgeInsets.all(15.3),
+        padding: const EdgeInsets.all(_OfficialPaperGeometry.outerMargin),
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 2.25),
+            border: Border.all(color: Colors.black, width: _OfficialPaperGeometry.frameBorderWidth),
           ),
-          padding: const EdgeInsets.fromLTRB(13.45, 13.45, 13.45, 10),
+          padding: const EdgeInsets.fromLTRB(
+            _OfficialPaperGeometry.innerPaddingHorizontal,
+            _OfficialPaperGeometry.innerPaddingTop,
+            _OfficialPaperGeometry.innerPaddingHorizontal,
+            _OfficialPaperGeometry.innerPaddingBottom,
+          ),
           child: Column(
             children: [
             _PaperHeader(exam: exam),
@@ -280,7 +313,7 @@ class _PaperHeader extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: 1.2),
+        border: Border.all(color: Colors.black, width: _OfficialPaperGeometry.headerBorderWidth),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -393,7 +426,7 @@ class _HeaderText extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
         color: Colors.black,
-        fontSize: 9.5,
+        fontSize: _OfficialPaperTypography.headerRegular,
         fontWeight: bold ? FontWeight.bold : FontWeight.normal,
       ),
     );
