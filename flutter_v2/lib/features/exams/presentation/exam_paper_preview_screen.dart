@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -63,16 +62,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       compress: true,
     );
 
-    // Load the official emblem before the detached WidgetWrapper render pass.
-    // MemoryImage is deterministic inside the detached PDF snapshot.
-    final logoData = await NetworkAssetBundle(
-      Uri.parse(officialYemenEmblemUrl),
-    ).load(officialYemenEmblemUrl);
-    final logoBytes = logoData.buffer.asUint8List(
-      logoData.offsetInBytes,
-      logoData.lengthInBytes,
-    );
-
     final pageFormat = PdfPageFormat(
       _OfficialPaperGeometry.a4Width,
       _OfficialPaperGeometry.a4Height,
@@ -84,7 +73,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         pageNumber: index + 1,
         totalPages: _pages.length,
         questions: _pages[index],
-        logoBytes: logoBytes,
       );
 
       final wrapped = await WidgetWrapper.fromWidget(
@@ -236,6 +224,7 @@ abstract final class _OfficialPaperGeometry {
   static const double innerPaddingBottom = 10.0;
 
   static const double headerBorderWidth = 1.2;
+  static const double headerHeight = 78.5;
 }
 
 /// Typography scale used by the official header. Do not replace these
@@ -254,14 +243,12 @@ class _PaperPage extends StatelessWidget {
     required this.pageNumber,
     required this.totalPages,
     required this.questions,
-    required this.logoBytes,
   });
 
   final Exam exam;
   final int pageNumber;
   final int totalPages;
   final List<ExamQuestion> questions;
-  final Uint8List logoBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +270,7 @@ class _PaperPage extends StatelessWidget {
           ),
           child: Column(
             children: [
-            _PaperHeader(exam: exam, logoBytes: logoBytes),
+            _PaperHeader(exam: exam),
             const SizedBox(height: 5),
             _InstructionBar(text: template.instruction),
             const SizedBox(height: 10),
@@ -310,18 +297,21 @@ class _PaperPage extends StatelessWidget {
 }
 
 class _PaperHeader extends StatelessWidget {
-  const _PaperHeader({required this.exam, required this.logoBytes});
+  const _PaperHeader({required this.exam});
 
   final Exam exam;
-  final Uint8List logoBytes;
 
   @override
   Widget build(BuildContext context) {
     final t = exam.template;
 
     return Container(
+      height: _OfficialPaperGeometry.headerHeight,
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black, width: _OfficialPaperGeometry.headerBorderWidth),
+        border: Border.all(
+          color: Colors.black,
+          width: _OfficialPaperGeometry.headerBorderWidth,
+        ),
       ),
       child: IntrinsicHeight(
         child: Row(
@@ -348,9 +338,9 @@ class _PaperHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Image.memory(
-                      logoBytes,
-                      width: 78,
-                      height: 48,
+                      officialYemenEmblemPng,
+                      width: 108,
+                      height: 50,
                       fit: BoxFit.contain,
                       filterQuality: FilterQuality.high,
                     ),
@@ -372,6 +362,16 @@ class _PaperHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Image.memory(
+                        officialMinistryWordmarkPng,
+                        width: 118,
+                        height: 30,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
                     _InfoLine(t.subjectLabel, exam.subject),
                     _InfoLine(t.gradeLabel, exam.className),
                     _InfoLine(t.dateLabel, '___ / ___ / ______م'),
