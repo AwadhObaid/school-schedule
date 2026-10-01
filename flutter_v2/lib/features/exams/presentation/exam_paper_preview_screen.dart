@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import 'exam_official_assets.dart';
+import 'exam_rich_html_renderer.dart';
 
 import '../../../core/models/exam.dart';
 import '../../../core/models/exam_content_block.dart';
@@ -661,39 +662,40 @@ class _QuestionOnPaper extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 3),
-          // Rich HTML is stored by the MExam-style editor. During this
-          // transition phase the PDF renderer uses normalized content blocks,
-          // so the print pipeline does not depend on flutter_html.
-          // The next phase will render the same HTML/CSS through the MExam
-          // WebView renderer.
-          for (final block in question.effectiveContent)
+          if (question.htmlContent.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: block.type == ExamContentBlockType.text
-                  ? Text(
-                      block.value,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 10,
-                        height: 1.35,
-                      ),
-                    )
-                  : Align(
-                      alignment: Alignment.center,
-                      child: Math.tex(
+              child: ExamRichHtmlRenderer(
+                html: question.htmlContent,
+                fontSize: _OfficialPaperTypography.body,
+              ),
+            )
+          else
+            for (final block in question.effectiveContent)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: block.type == ExamContentBlockType.text
+                    ? Text(
                         block.value,
-                        mathStyle: MathStyle.display,
-                        onErrorFallback: (_) => const Text(
-                          'معادلة غير صالحة',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 9,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: _OfficialPaperTypography.body,
+                          height: 1.35,
+                        ),
+                      )
+                    : Align(
+                        alignment: Alignment.center,
+                        child: Math.tex(
+                          block.value,
+                          mathStyle: MathStyle.display,
+                          onErrorFallback: (_) => const Text(
+                            'معادلة غير صالحة',
+                            style: TextStyle(color: Colors.black, fontSize: 9),
                           ),
                         ),
                       ),
-                    ),
-            ),
+              ),
           if (question.type == ExamQuestionType.multipleChoice &&
               question.options.isNotEmpty)
             _ChoiceOptions(
