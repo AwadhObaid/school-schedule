@@ -352,12 +352,17 @@ class _PaperHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     SizedBox(
+                      width: double.infinity,
                       height: 37,
-                      child: Image.memory(
-                        officialYemenEmblemImage,
-                        width: 96,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
+                      child: Center(
+                        child: Image.memory(
+                          officialYemenEmblemImage,
+                          width: 96,
+                          height: 37,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          filterQuality: FilterQuality.high,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 1),
