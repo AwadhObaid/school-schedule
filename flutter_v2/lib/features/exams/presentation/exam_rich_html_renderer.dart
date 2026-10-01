@@ -81,54 +81,66 @@ class ExamRichHtmlRenderer extends StatelessWidget {
   }
 
   Widget _inlineFlow(dom.Element element) {
-    final children = <Widget>[];
+    final runs = <Widget>[];
+
     for (final child in element.nodes) {
       if (child is dom.Text) {
-        final text = _decode(child.data);
-        if (text.isNotEmpty) children.add(_text(text));
+        final text = _decode(child.data).trim();
+        if (text.isNotEmpty) {
+          runs.add(_text(text));
+        }
         continue;
       }
 
-      if (child is dom.Element) {
-        final classes = _classes(child);
-        if (classes.contains('frac')) {
-          children.add(_fraction(child));
-        } else if (classes.contains('root')) {
-          children.add(_root(child));
-        } else if (classes.contains('limit')) {
-          children.add(_limit(child));
-        } else if (classes.contains('matrix')) {
-          children.add(_matrix(child));
-        } else if (classes.contains('vector')) {
-          children.add(_vector(child));
-        } else if (classes.contains('isotope')) {
-          children.add(_isotope(child));
-        } else if (classes.contains('chem') ||
-            classes.contains('physics-unit')) {
-          children.add(_scientificText(child));
-        } else if (classes.contains('science-template')) {
-          children.add(_scientificText(child, bold: true));
-        } else if (child.localName == 'br') {
-          children.add(const SizedBox(width: double.infinity, height: 5));
-        } else if (child.localName == 'sup' || child.localName == 'sub') {
-          children.add(_script(child));
-        } else {
-          children.add(_styledInline(child));
+      if (child is! dom.Element) continue;
+
+      final classes = _classes(child);
+      final tag = child.localName?.toLowerCase() ?? '';
+
+      if (classes.contains('frac')) {
+        runs.add(_fraction(child));
+      } else if (classes.contains('root')) {
+        runs.add(_root(child));
+      } else if (classes.contains('limit')) {
+        runs.add(_limit(child));
+      } else if (classes.contains('matrix')) {
+        runs.add(_matrix(child));
+      } else if (classes.contains('vector')) {
+        runs.add(_vector(child));
+      } else if (classes.contains('isotope')) {
+        runs.add(_isotope(child));
+      } else if (classes.contains('chem') ||
+          classes.contains('physics-unit')) {
+        runs.add(_scientificText(child));
+      } else if (classes.contains('science-template')) {
+        runs.add(_scientificText(child, bold: true));
+      } else if (tag == 'br') {
+        runs.add(const SizedBox(height: 5));
+      } else if (tag == 'sup' || tag == 'sub') {
+        runs.add(_script(child));
+      } else if (tag == 'table') {
+        runs.add(_table(child));
+      } else {
+        final nested = child.text.trim();
+        if (nested.isNotEmpty) {
+          runs.add(_styledInline(child));
         }
       }
     }
 
-    if (children.isEmpty) return const SizedBox.shrink();
+    if (runs.isEmpty) return const SizedBox.shrink();
 
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 3,
-        runSpacing: 3,
-        textDirection: TextDirection.rtl,
-        children: children,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: runs.map((run) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: run,
+          );
+        }).toList(),
       ),
     );
   }
