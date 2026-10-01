@@ -27,8 +27,6 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 }
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
-  static const _ministryLogoUrl =
-      'https://moe-ye.net/wp-content/uploads/2020/01/logo-278x300.png';
   late final List<List<ExamQuestion>> _pages;
 
   @override
