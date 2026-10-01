@@ -1125,7 +1125,6 @@ class _EquationSheetState extends State<_EquationSheet> {
     super.initState();
     _latex = widget.initial;
     _controller = MathFieldEditingController();
-    _controller.text = _latex;
   }
 
   @override
@@ -1136,7 +1135,6 @@ class _EquationSheetState extends State<_EquationSheet> {
 
   void _insert(String value) {
     _latex = _latex + ' ' + value + ' ';
-    _controller.text = _latex;
     setState(() {});
   }
 
