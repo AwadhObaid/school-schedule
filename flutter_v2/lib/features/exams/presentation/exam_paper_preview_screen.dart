@@ -263,7 +263,8 @@ class _PaperPage extends StatelessWidget {
               pageNumber: pageNumber,
               totalPages: totalPages,
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
