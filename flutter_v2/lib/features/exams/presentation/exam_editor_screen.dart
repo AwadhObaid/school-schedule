@@ -1280,6 +1280,7 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
   late final TextEditingController _ministry;
   late final TextEditingController _office;
   late final TextEditingController _administration;
+  late final TextEditingController _teacherName;
   late final TextEditingController _footerRight;
   late final TextEditingController _footerLeft;
   late bool _showMarks;
@@ -1296,6 +1297,9 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
     _ministry = TextEditingController(text: t.ministry);
     _office = TextEditingController(text: t.educationOffice);
     _administration = TextEditingController(text: t.educationAdministration);
+    _teacherName = TextEditingController(
+      text: t.teacherName.trim().isNotEmpty ? t.teacherName : t.footerRight,
+    );
     _footerRight = TextEditingController(text: t.footerRight);
     _footerLeft = TextEditingController(text: t.footerLeft);
     _showMarks = t.showQuestionMarks;
@@ -1312,6 +1316,7 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
       _ministry,
       _office,
       _administration,
+      _teacherName,
       _footerRight,
       _footerLeft,
     ]) {
@@ -1410,12 +1415,14 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
                       label: 'إدارة التربية والتعليم',
                     ),
                     _TemplateField(
-                      controller: _footerRight,
-                      label: 'التذييل الأيمن',
+                      controller: _teacherName,
+                      label: 'اسم الأستاذ',
+                      hintText: 'مثال: AlSabaei Adel /T',
                     ),
                     _TemplateField(
                       controller: _footerLeft,
-                      label: 'التذييل الأيسر',
+                      label: 'نص التذييل الأيسر',
+                      hintText: 'مع تمنياتنا لكم بالتوفيق والنجاح',
                     ),
                   ],
                 ),
@@ -1443,7 +1450,9 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
         examTitle: _title.text.trim(),
         academicYear: _year.text.trim(),
         instruction: _instruction.text.trim(),
-        footerRight: _footerRight.text.trim(),
+        teacherName: _teacherName.text.trim(),
+        // Keep the legacy field synchronized for older saved exams.
+        footerRight: _teacherName.text.trim(),
         footerLeft: _footerLeft.text.trim(),
         showQuestionMarks: _showMarks,
         showPageNumber: _showPageNumber,
@@ -1464,6 +1473,7 @@ class _TemplateField extends StatelessWidget {
   final String label;
   final IconData? icon;
   final int maxLines;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -1476,6 +1486,7 @@ class _TemplateField extends StatelessWidget {
         maxLines: maxLines,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hintText,
           prefixIcon: icon == null ? null : Icon(icon),
         ),
       ),
