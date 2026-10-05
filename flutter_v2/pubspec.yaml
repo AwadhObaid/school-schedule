@@ -38,3 +38,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_icon.png
+
+  fonts:
+    - family: OfficialExamAmiri
+      fonts:
+        - asset: assets/fonts/Amiri-Bold.ttf
+          weight: 700
