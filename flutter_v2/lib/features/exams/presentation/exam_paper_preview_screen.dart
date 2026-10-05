@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
@@ -258,11 +260,43 @@ Future<Uint8List> _whiteToTransparentPng(Uint8List source) async {
     data.offsetInBytes,
     data.lengthInBytes,
   ));
-  for (var i = 0; i + 3 < bytes.length; i += 4) {
-    final r = bytes[i];
-    final g = bytes[i + 1];
-    final b = bytes[i + 2];
-    if (r > 245 && g > 245 && b > 245) bytes[i + 3] = 0;
+  final width = image.width;
+  final height = image.height;
+  final visited = Uint8List(width * height);
+  final queue = <int>[];
+
+  void seed(int x, int y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) return;
+    final index = y * width + x;
+    if (visited[index] != 0) return;
+    final p = index * 4;
+    final nearWhite =
+        bytes[p] > 245 && bytes[p + 1] > 245 && bytes[p + 2] > 245;
+    if (!nearWhite || bytes[p + 3] == 0) return;
+    visited[index] = 1;
+    queue.add(index);
+  }
+
+  for (var x = 0; x < width; x++) {
+    seed(x, 0);
+    seed(x, height - 1);
+  }
+  for (var y = 0; y < height; y++) {
+    seed(0, y);
+    seed(width - 1, y);
+  }
+
+  var cursor = 0;
+  while (cursor < queue.length) {
+    final index = queue[cursor++];
+    final p = index * 4;
+    bytes[p + 3] = 0;
+    final x = index % width;
+    final y = index ~/ width;
+    seed(x - 1, y);
+    seed(x + 1, y);
+    seed(x, y - 1);
+    seed(x, y + 1);
   }
   final raw = await ui.ImmutableBuffer.fromUint8List(bytes);
   final descriptor = ui.ImageDescriptor.raw(
