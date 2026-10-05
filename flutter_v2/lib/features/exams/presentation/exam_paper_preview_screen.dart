@@ -117,7 +117,9 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 left: _OfficialPaperGeometry.contentLeft,
                 top: _OfficialPaperGeometry.contentTop,
                 right: _OfficialPaperGeometry.contentRight,
-                height: _OfficialPaperGeometry.headerHeight,
+                bottom: _OfficialPaperGeometry.a4Height -
+                    _OfficialPaperGeometry.contentTop -
+                    _OfficialPaperGeometry.headerHeight,
                 child: _PdfOfficialHeader(
                   exam: widget.exam,
                   font: officialFont,
@@ -129,7 +131,9 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 left: _OfficialPaperGeometry.contentLeft,
                 top: _OfficialPaperGeometry.instructionTop,
                 right: _OfficialPaperGeometry.contentRight,
-                height: _OfficialPaperGeometry.instructionHeight,
+                bottom: _OfficialPaperGeometry.a4Height -
+                    _OfficialPaperGeometry.instructionTop -
+                    _OfficialPaperGeometry.instructionHeight,
                 child: _PdfInstructionBar(
                   text: widget.exam.template.instruction,
                   font: officialFont,
