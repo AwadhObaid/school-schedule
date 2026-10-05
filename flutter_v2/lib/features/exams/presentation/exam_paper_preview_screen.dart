@@ -821,7 +821,9 @@ class _PaperFooter extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                template.footerRight,
+                template.teacherName.trim().isNotEmpty
+                    ? template.teacherName
+                    : template.footerRight,
                 textAlign: TextAlign.right,
                 style: TextStyle(
                   color: Colors.black,
