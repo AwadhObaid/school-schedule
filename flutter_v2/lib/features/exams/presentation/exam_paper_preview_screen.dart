@@ -306,7 +306,8 @@ class _PaperPage extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
