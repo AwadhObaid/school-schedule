@@ -29,32 +29,175 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   late final List<List<ExamQuestion>> _pages;
+  final TransformationController _transformController =
+      TransformationController();
+
+  double _zoom = 1.0;
+  bool _loading = true;
+  Uint8List? _pdfBytes;
+  List<Uint8List> _pageImages = const <Uint8List>[];
 
   @override
   void initState() {
     super.initState();
     _pages = _paginate(widget.exam.questions);
+    _loadPreview();
+  }
+
+  @override
+  void dispose() {
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadPreview() async {
+    try {
+      final bytes = await _buildPdf(context, PdfPageFormat.a4);
+      final images = <Uint8List>[];
+
+      await for (final page in Printing.raster(bytes, dpi: 150)) {
+        images.add(await page.toPng());
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _pdfBytes = bytes;
+        _pageImages = images;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تجهيز معاينة الورقة: $error')),
+      );
+    }
+  }
+
+  void _setZoom(double value) {
+    final next = value.clamp(0.5, 3.0).toDouble();
+    setState(() => _zoom = next);
+    _transformController.value = Matrix4.identity()..scale(next);
+  }
+
+  void _zoomIn() => _setZoom(_zoom + 0.25);
+
+  void _zoomOut() => _setZoom(_zoom - 0.25);
+
+  void _resetZoom() => _setZoom(1.0);
+
+  Future<void> _print() async {
+    final bytes = _pdfBytes;
+    if (bytes == null) return;
+    await Printing.layoutPdf(
+      onLayout: (_) async => bytes,
+      name: _fileName(widget.exam),
+    );
+  }
+
+  Future<void> _share() async {
+    final bytes = _pdfBytes;
+    if (bytes == null) return;
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: _fileName(widget.exam),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('ورقة الاختبار A4 • معاينة PDF'),
+        title: const Text('ورقة الاختبار A4 • معاينة PDF'),
+        actions: [
+          IconButton(
+            tooltip: 'تصغير',
+            onPressed: _loading || _zoom <= 0.5 ? null : _zoomOut,
+            icon: const Icon(Icons.remove),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Text(
+                '${(_zoom * 100).round()}%',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'تكبير',
+            onPressed: _loading || _zoom >= 3.0 ? null : _zoomIn,
+            icon: const Icon(Icons.add),
+          ),
+          IconButton(
+            tooltip: 'ملاءمة الصفحة',
+            onPressed: _loading ? null : _resetZoom,
+            icon: const Icon(Icons.fit_screen_outlined),
+          ),
+          if (_pdfBytes != null)
+            IconButton(
+              tooltip: 'مشاركة PDF',
+              onPressed: _share,
+              icon: const Icon(Icons.share_outlined),
+            ),
+          if (_pdfBytes != null)
+            IconButton(
+              tooltip: 'طباعة',
+              onPressed: _print,
+              icon: const Icon(Icons.print_outlined),
+            ),
+        ],
       ),
-      body: PdfPreview(
-        initialPageFormat: PdfPageFormat.a4,
-        canChangePageFormat: false,
-        canChangeOrientation: false,
-        allowPrinting: true,
-        allowSharing: true,
-        maxPageWidth: 850,
-        pdfFileName: _fileName(widget.exam),
-        build: (format) => _buildPdf(context, format),
-      ),
+      body: _loading
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 14),
+                  Text('جاري تجهيز معاينة ورقة A4...'),
+                ],
+              ),
+            )
+          : _pageImages.isEmpty
+              ? const Center(child: Text('لا توجد صفحات للمعاينة.'))
+              : Container(
+                  color: const Color(0xFFE5E7EB),
+                  child: PageView.builder(
+                    itemCount: _pageImages.length,
+                    itemBuilder: (context, index) {
+                      return InteractiveViewer(
+                        transformationController: _transformController,
+                        minScale: 0.5,
+                        maxScale: 3.0,
+                        panEnabled: true,
+                        scaleEnabled: true,
+                        boundaryMargin: const EdgeInsets.all(120),
+                        onInteractionUpdate: (_) {
+                          final scale = _transformController.value
+                              .getMaxScaleOnAxis();
+                          if ((scale - _zoom).abs() > 0.01 && mounted) {
+                            setState(() => _zoom = scale.clamp(0.5, 3.0).toDouble());
+                          }
+                        },
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Image.memory(
+                              _pageImages[index],
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 
+}
   Future<Uint8List> _buildPdf(
     BuildContext context,
     PdfPageFormat format,
