@@ -197,7 +197,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     );
   }
 
-}
   Future<Uint8List> _buildPdf(
     BuildContext context,
     PdfPageFormat format,
