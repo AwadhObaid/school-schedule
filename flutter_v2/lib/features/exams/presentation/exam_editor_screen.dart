@@ -1281,7 +1281,6 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
   late final TextEditingController _office;
   late final TextEditingController _administration;
   late final TextEditingController _teacherName;
-  late final TextEditingController _footerRight;
   late final TextEditingController _footerLeft;
   late bool _showMarks;
   late bool _showPageNumber;
@@ -1300,7 +1299,6 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
     _teacherName = TextEditingController(
       text: t.teacherName.trim().isNotEmpty ? t.teacherName : t.footerRight,
     );
-    _footerRight = TextEditingController(text: t.footerRight);
     _footerLeft = TextEditingController(text: t.footerLeft);
     _showMarks = t.showQuestionMarks;
     _showPageNumber = t.showPageNumber;
@@ -1317,7 +1315,6 @@ class _PaperTemplateSheetState extends State<_PaperTemplateSheet> {
       _office,
       _administration,
       _teacherName,
-      _footerRight,
       _footerLeft,
     ]) {
       c.dispose();
