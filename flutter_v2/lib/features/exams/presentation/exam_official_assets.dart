@@ -1,11 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
-import 'package:flutter/services.dart';
-
-import 'exam_official_font.dart';
-
 /// Assets extracted directly from the supplied official reference PDF.
 ///
 /// These are embedded in the application so the official header never depends
@@ -21,15 +16,7 @@ final Uint8List officialMinistryWordmarkImage = base64Decode(
 
 const String officialExamFontFamily = 'OfficialExamAmiri';
 
-bool _officialExamFontLoaded = false;
-
-Future<void> loadOfficialExamFont() async {
-  if (_officialExamFontLoaded) return;
-  final bytes = Uint8List.fromList(
-    GZipDecoder().decodeBytes(base64Decode(officialAmiriGzipBase64)),
-  );
-  final loader = FontLoader(officialExamFontFamily);
-  loader.addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
-  await loader.load();
-  _officialExamFontLoaded = true;
-}
+/// The official font is declared as a bundled Flutter font in pubspec.yaml.
+/// Keeping this function preserves the existing preview API while avoiding
+/// runtime decoding of the subsetted font embedded in the reference PDF.
+Future<void> loadOfficialExamFont() async {}
