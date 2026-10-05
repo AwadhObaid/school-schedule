@@ -1464,6 +1464,7 @@ class _TemplateField extends StatelessWidget {
     required this.label,
     this.icon,
     this.maxLines = 1,
+    this.hintText,
   });
 
   final TextEditingController controller;
