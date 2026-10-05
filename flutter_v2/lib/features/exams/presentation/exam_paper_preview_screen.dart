@@ -8,6 +8,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import 'exam_official_assets.dart';
+import 'exam_official_font.dart';
 import 'exam_rich_html_renderer.dart';
 
 import '../../../core/models/exam.dart';
@@ -86,19 +87,53 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         dpi: 144,
       );
 
-      // WidgetWrapper exposes raw RGBA pixels. Convert them to PNG before
-      // handing them to the PDF engine to avoid raw-image decoding issues.
+      // The body remains rasterized for reliable Arabic/HTML/equation layout,
+      // while the official header and instruction bar are rebuilt natively in
+      // the PDF so their text is vector-sharp.
       final pngBytes = await _rawRgbaToPng(wrapped);
+      final emblemPng = await _whiteToTransparentPng(
+        officialYemenEmblemImage,
+      );
+      final wordmarkPng = await _whiteToTransparentPng(
+        officialMinistryWordmarkImage,
+      );
+      final officialFont = await _loadPdfOfficialFont();
 
       pdf.addPage(
         pw.Page(
           pageFormat: pageFormat,
           margin: pw.EdgeInsets.zero,
-          build: (_) => pw.Image(
-            pw.MemoryImage(pngBytes),
-            width: pageFormat.width,
-            height: pageFormat.height,
-            fit: pw.BoxFit.fill,
+          build: (_) => pw.Stack(
+            children: [
+              pw.Positioned.fill(
+                child: pw.Image(
+                  pw.MemoryImage(pngBytes),
+                  fit: pw.BoxFit.fill,
+                ),
+              ),
+              pw.Positioned(
+                left: _OfficialPaperGeometry.contentLeft,
+                top: _OfficialPaperGeometry.contentTop,
+                width: _OfficialPaperGeometry.contentWidth,
+                height: _OfficialPaperGeometry.headerHeight,
+                child: _PdfOfficialHeader(
+                  exam: widget.exam,
+                  font: officialFont,
+                  emblem: pw.MemoryImage(emblemPng),
+                  wordmark: pw.MemoryImage(wordmarkPng),
+                ),
+              ),
+              pw.Positioned(
+                left: _OfficialPaperGeometry.contentLeft,
+                top: _OfficialPaperGeometry.instructionTop,
+                width: _OfficialPaperGeometry.contentWidth,
+                height: _OfficialPaperGeometry.instructionHeight,
+                child: _PdfInstructionBar(
+                  text: widget.exam.template.instruction,
+                  font: officialFont,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -209,6 +244,172 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   }
 }
 
+Future<Uint8List> _whiteToTransparentPng(Uint8List source) async {
+  final codec = await ui.instantiateImageCodec(source);
+  final frame = await codec.getNextFrame();
+  final image = frame.image;
+  final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  if (data == null) {
+    image.dispose();
+    codec.dispose();
+    throw StateError('تعذر معالجة الصورة الرسمية.');
+  }
+  final bytes = Uint8List.fromList(data.buffer.asUint8List(
+    data.offsetInBytes,
+    data.lengthInBytes,
+  ));
+  for (var i = 0; i + 3 < bytes.length; i += 4) {
+    final r = bytes[i];
+    final g = bytes[i + 1];
+    final b = bytes[i + 2];
+    if (r > 245 && g > 245 && b > 245) bytes[i + 3] = 0;
+  }
+  final raw = await ui.ImmutableBuffer.fromUint8List(bytes);
+  final descriptor = ui.ImageDescriptor.raw(
+    raw,
+    width: image.width,
+    height: image.height,
+    pixelFormat: ui.PixelFormat.rgba8888,
+  );
+  final rawCodec = await descriptor.instantiateCodec();
+  final rawFrame = await rawCodec.getNextFrame();
+  final png = await rawFrame.image.toByteData(format: ui.ImageByteFormat.png);
+  rawFrame.image.dispose();
+  rawCodec.dispose();
+  descriptor.dispose();
+  raw.dispose();
+  image.dispose();
+  codec.dispose();
+  if (png == null) throw StateError('تعذر إنشاء صورة PNG شفافة.');
+  return png.buffer.asUint8List(png.offsetInBytes, png.lengthInBytes);
+}
+
+Future<pw.Font> _loadPdfOfficialFont() async {
+  final ttf = Uint8List.fromList(
+    GZipDecoder().decodeBytes(base64Decode(officialAmiriGzipBase64)),
+  );
+  return pw.Font.ttf(ByteData.sublistView(ttf));
+}
+
+class _PdfOfficialHeader extends pw.StatelessWidget {
+  _PdfOfficialHeader({
+    required this.exam,
+    required this.font,
+    required this.emblem,
+    required this.wordmark,
+  });
+
+  final Exam exam;
+  final pw.Font font;
+  final pw.MemoryImage emblem;
+  final pw.MemoryImage wordmark;
+
+  @override
+  pw.Widget build(pw.Context context) {
+    final t = exam.template;
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: _OfficialPaperGeometry.headerBorderWidth),
+      ),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            flex: 185,
+            child: _pdfCell(pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                _pdfInfoLine(t.subjectLabel, exam.subject, font),
+                _pdfInfoLine(t.gradeLabel, exam.className, font),
+                _pdfInfoLine(t.dateLabel, '___ / ___ / ______م', font),
+                _pdfInfoLine(t.durationLabel, _durationLabelForPdf(exam.durationMinutes), font),
+              ],
+            )),
+          ),
+          pw.Expanded(
+            flex: 275,
+            child: _pdfCell(pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.SizedBox(
+                  height: 37,
+                  child: pw.Center(child: pw.Image(emblem, width: 96, height: 37, fit: pw.BoxFit.contain)),
+                ),
+                _pdfHeaderText(t.examTitle.isEmpty ? exam.title : t.examTitle, font, bold: true, size: _OfficialPaperTypography.headerTitle),
+                if (t.academicYear.trim().isNotEmpty) _pdfHeaderText(t.academicYear, font),
+              ],
+            )),
+          ),
+          pw.Expanded(
+            flex: 228,
+            child: _pdfCell(pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              children: [
+                pw.SizedBox(height: 24, child: pw.Image(wordmark, width: 100, fit: pw.BoxFit.contain)),
+                _pdfHeaderText(t.ministry, font, bold: true),
+                _pdfHeaderText(t.educationOffice, font),
+                _pdfHeaderText(t.educationAdministration, font),
+                _pdfHeaderText(t.schoolName, font, bold: true),
+              ],
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+pw.Widget _pdfCell(pw.Widget child) => pw.Container(
+  alignment: pw.Alignment.center,
+  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+  decoration: const pw.BoxDecoration(
+    border: pw.Border(left: pw.BorderSide(color: PdfColors.black, width: 1)),
+  ),
+  child: child,
+);
+
+pw.Widget _pdfHeaderText(String value, pw.Font font, {bool bold = false, double size = _OfficialPaperTypography.headerRegular}) =>
+    pw.SizedBox(
+      width: double.infinity,
+      child: pw.Text(
+        value.isEmpty ? ' ' : value,
+        textAlign: pw.TextAlign.center,
+        maxLines: 1,
+        style: pw.TextStyle(font: font, fontSize: size, fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal),
+      ),
+    );
+
+pw.Widget _pdfInfoLine(String label, String value, pw.Font font) => pw.Expanded(
+  child: pw.Center(
+    child: pw.Text(
+      label + ': ' + (value.isEmpty ? '—' : value),
+      textAlign: pw.TextAlign.center,
+      maxLines: 1,
+      style: pw.TextStyle(font: font, fontSize: _OfficialPaperTypography.headerRegular),
+    ),
+  ),
+);
+
+class _PdfInstructionBar extends pw.StatelessWidget {
+  _PdfInstructionBar({required this.text, required this.font});
+  final String text;
+  final pw.Font font;
+  @override
+  pw.Widget build(pw.Context context) => pw.Container(
+    height: _OfficialPaperGeometry.instructionHeight,
+    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+    child: pw.Row(children: [
+      pw.Container(width: 28, alignment: pw.Alignment.center, decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 1))), child: pw.Text('س', style: pw.TextStyle(font: font, fontSize: 10))),
+      pw.Expanded(child: pw.Center(child: pw.Text(text.isEmpty ? 'أجب عن جميع الأسئلة التالية:' : text, textAlign: pw.TextAlign.center, maxLines: 1, style: pw.TextStyle(font: font, fontSize: 9.5, fontWeight: pw.FontWeight.bold)))),
+      pw.Container(width: 28, alignment: pw.Alignment.center, decoration: const pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(color: PdfColors.black, width: 1))), child: pw.Text('د', style: pw.TextStyle(font: font, fontSize: 10))),
+    ]),
+  );
+}
+
+String _durationLabelForPdf(int minutes) {
+  if (minutes % 60 == 0) return minutes == 60 ? 'ساعة' : '${minutes ~/ 60} ساعات';
+  if (minutes > 60) return '${minutes ~/ 60} ساعة و ${minutes % 60} دقيقة';
+  return '$minutes دقيقة';
+}
 /// Official A4 geometry derived from the supplied reference paper.
 /// The source page is A4 portrait (210 × 297 mm = 595.28 × 841.89 pt).
 /// Keep these values centralized so the official sheet is not altered
@@ -226,6 +427,12 @@ abstract final class _OfficialPaperGeometry {
 
   static const double headerBorderWidth = 1.2;
   static const double headerHeight = 78.5;
+  static const double instructionHeight = 25.0;
+  static const double contentLeft = outerMargin + innerPaddingHorizontal;
+  static const double contentTop = outerMargin + innerPaddingTop;
+  static const double contentWidth =
+      a4Width - (2 * (outerMargin + innerPaddingHorizontal));
+  static const double instructionTop = contentTop + headerHeight + 5.0;
 }
 
 /// Typography scale used by the official header. Do not replace these
