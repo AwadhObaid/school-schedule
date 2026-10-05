@@ -12,6 +12,7 @@ class ExamPaperTemplate {
     this.dateLabel = 'التاريخ',
     this.durationLabel = 'الزمن',
     this.instruction = 'أجب عن جميع الأسئلة التالية:',
+    this.teacherName = '',
     this.footerRight = '',
     this.footerLeft = 'مع تمنياتنا لكم بالتوفيق والنجاح',
     this.showQuestionMarks = true,
@@ -30,6 +31,8 @@ class ExamPaperTemplate {
   final String dateLabel;
   final String durationLabel;
   final String instruction;
+  final String teacherName;
+  /// Legacy footer-right value kept for backward-compatible saved exams.
   final String footerRight;
   final String footerLeft;
   final bool showQuestionMarks;
@@ -47,6 +50,7 @@ class ExamPaperTemplate {
     String? dateLabel,
     String? durationLabel,
     String? instruction,
+    String? teacherName,
     String? footerRight,
     String? footerLeft,
     bool? showQuestionMarks,
@@ -66,6 +70,7 @@ class ExamPaperTemplate {
       dateLabel: dateLabel ?? this.dateLabel,
       durationLabel: durationLabel ?? this.durationLabel,
       instruction: instruction ?? this.instruction,
+      teacherName: teacherName ?? this.teacherName,
       footerRight: footerRight ?? this.footerRight,
       footerLeft: footerLeft ?? this.footerLeft,
       showQuestionMarks: showQuestionMarks ?? this.showQuestionMarks,
@@ -87,6 +92,7 @@ class ExamPaperTemplate {
       'dateLabel': dateLabel,
       'durationLabel': durationLabel,
       'instruction': instruction,
+      'teacherName': teacherName,
       'footerRight': footerRight,
       'footerLeft': footerLeft,
       'showQuestionMarks': showQuestionMarks,
@@ -119,6 +125,10 @@ class ExamPaperTemplate {
       instruction:
           json['instruction']?.toString() ??
           'أجب عن جميع الأسئلة التالية:',
+      teacherName:
+          json['teacherName']?.toString() ??
+          json['footerRight']?.toString() ??
+          '',
       footerRight: json['footerRight']?.toString() ?? '',
       footerLeft:
           json['footerLeft']?.toString() ??
