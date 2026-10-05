@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -369,16 +370,12 @@ class _PaperHeader extends StatelessWidget {
                       width: double.infinity,
                       height: 37,
                       child: Center(
-                        child: Transform.translate(
-                          offset: const Offset(20, 0),
-                          child: Image.memory(
-                            officialYemenEmblemImage,
-                            width: 96,
-                            height: 37,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.high,
-                          ),
+                        child: SvgPicture.asset(
+                          'assets/images/yemen_emblem_transparent.svg',
+                          width: 112,
+                          height: 42,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
                         ),
                       ),
                     ),
