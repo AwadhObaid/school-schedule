@@ -343,11 +343,14 @@ class _PaperHeader extends StatelessWidget {
                   children: [
                     SizedBox(
                       height: 24,
-                      child: Image.memory(
-                        officialMinistryWordmarkImage,
-                        width: 100,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/images/yemen_republic_wordmark.svg',
+                          width: 108,
+                          height: 22,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 1),
