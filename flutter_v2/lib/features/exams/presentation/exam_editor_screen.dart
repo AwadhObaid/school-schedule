@@ -26,6 +26,8 @@ class ExamEditorScreen extends StatefulWidget {
   State<ExamEditorScreen> createState() => _ExamEditorScreenState();
 }
 
+enum _ExitChoice { stay, discard, save }
+
 class _ExamEditorScreenState extends State<ExamEditorScreen> {
   late final TextEditingController _title;
   late final TextEditingController _subject;
@@ -54,6 +56,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     _template = e?.template ?? const ExamPaperTemplate();
     _weekday = e?.weekday;
     _periodId = e?.periodId;
+    _hasUnsavedChanges = e == null;
     _title.addListener(_markDirty);
     _subject.addListener(_markDirty);
     _className.addListener(_markDirty);
@@ -66,31 +69,39 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     }
   }
 
-  Future<bool> _confirmDiscardChanges() async {
-    if (!_hasUnsavedChanges) return true;
+  Future<_ExitChoice> _confirmDiscardChanges() async {
+    if (!_hasUnsavedChanges) return _ExitChoice.discard;
 
-    final discard = await showDialog<bool>(
+    final choice = await showDialog<_ExitChoice>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('لديك تغييرات غير محفوظة'),
         content: const Text(
           'قمت بإضافة أو تعديل بيانات في هذا الاختبار ولم يتم حفظها بعد. '
-          'هل تريد الخروج دون حفظ التغييرات؟',
+          'هل تريد حفظ الاختبار قبل الخروج؟',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_ExitChoice.stay),
             child: const Text('العودة للاختبار'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
+          TextButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_ExitChoice.discard),
             child: const Text('الخروج دون حفظ'),
+          ),
+          FilledButton.icon(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(_ExitChoice.save),
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('حفظ والخروج'),
           ),
         ],
       ),
     );
 
-    return discard ?? false;
+    return choice ?? _ExitChoice.stay;
   }
 
   @override
@@ -236,8 +247,12 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (await _confirmDiscardChanges() && mounted) {
+        final choice = await _confirmDiscardChanges();
+        if (!mounted) return;
+        if (choice == _ExitChoice.discard) {
           Navigator.of(context).pop();
+        } else if (choice == _ExitChoice.save) {
+          await _save();
         }
       },
       child: Scaffold(
