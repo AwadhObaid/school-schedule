@@ -35,6 +35,8 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
   late ExamPaperTemplate _template;
   int? _weekday;
   String? _periodId;
+  bool _hasUnsavedChanges = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -52,10 +54,51 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     _template = e?.template ?? const ExamPaperTemplate();
     _weekday = e?.weekday;
     _periodId = e?.periodId;
+    _title.addListener(_markDirty);
+    _subject.addListener(_markDirty);
+    _className.addListener(_markDirty);
+    _duration.addListener(_markDirty);
+  }
+
+  void _markDirty() {
+    if (!_isSaving && mounted && !_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  Future<bool> _confirmDiscardChanges() async {
+    if (!_hasUnsavedChanges) return true;
+
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('لديك تغييرات غير محفوظة'),
+        content: const Text(
+          'قمت بإضافة أو تعديل بيانات في هذا الاختبار ولم يتم حفظها بعد. '
+          'هل تريد الخروج دون حفظ التغييرات؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('العودة للاختبار'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('الخروج دون حفظ'),
+          ),
+        ],
+      ),
+    );
+
+    return discard ?? false;
   }
 
   @override
   void dispose() {
+    _title.removeListener(_markDirty);
+    _subject.removeListener(_markDirty);
+    _className.removeListener(_markDirty);
+    _duration.removeListener(_markDirty);
     _title.dispose();
     _subject.dispose();
     _className.dispose();
@@ -64,12 +107,15 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
     final title = _title.text.trim();
     final subject = _subject.text.trim();
     if (title.isEmpty || subject.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('أدخل عنوان الاختبار والمادة أولاً.')),
       );
+      setState(() => _isSaving = false);
       return;
     }
 
@@ -97,7 +143,11 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       all.add(exam);
     }
     await widget.store.save(all);
-    if (mounted) Navigator.pop(context, exam);
+    if (mounted) {
+      _hasUnsavedChanges = false;
+      _isSaving = false;
+      Navigator.pop(context, exam);
+    }
   }
 
   Future<void> _addQuestion() async {
@@ -110,7 +160,12 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       showDragHandle: false,
       builder: (_) => const MexamQuestionEditorSheet(),
     );
-    if (q != null) setState(() => _questions.add(q));
+    if (q != null) {
+      setState(() {
+        _questions.add(q);
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
   Future<void> _editQuestion(int index) async {
@@ -123,7 +178,12 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       showDragHandle: false,
       builder: (_) => MexamQuestionEditorSheet(initial: _questions[index]),
     );
-    if (q != null) setState(() => _questions[index] = q);
+    if (q != null) {
+      setState(() {
+        _questions[index] = q;
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
   Future<void> _editTemplate() async {
@@ -134,7 +194,12 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
       showDragHandle: true,
       builder: (_) => _PaperTemplateSheet(initial: _template),
     );
-    if (t != null) setState(() => _template = t);
+    if (t != null) {
+      setState(() {
+        _template = t;
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
   Exam _draftExam() {
@@ -167,7 +232,15 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
     final periods = widget.controller.teacherPeriodCatalog;
     final totalMarks = _questions.fold<double>(0, (sum, q) => sum + q.marks);
 
-    return Scaffold(
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (await _confirmDiscardChanges() && mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(widget.initial == null ? 'اختبار جديد' : 'تعديل الاختبار'),
         actions: [
@@ -261,8 +334,10 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                               child: Text(_dayName(day)),
                             ),
                         ],
-                        onChanged: (value) =>
-                            setState(() => _weekday = value),
+                        onChanged: (value) => setState(() {
+                          _weekday = value;
+                          _hasUnsavedChanges = true;
+                        }),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -281,8 +356,10 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                         ],
                         onChanged: _weekday == null
                             ? null
-                            : (value) =>
-                                setState(() => _periodId = value),
+                            : (value) => setState(() {
+                                  _periodId = value;
+                                  _hasUnsavedChanges = true;
+                                }),
                       ),
                     ),
                   ],
@@ -361,6 +438,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                         if (newIndex > oldIndex) newIndex--;
                         final item = _questions.removeAt(oldIndex);
                         _questions.insert(newIndex, item);
+                        _hasUnsavedChanges = true;
                       });
                     },
                     itemBuilder: (context, index) {
@@ -370,8 +448,10 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                         number: index + 1,
                         question: q,
                         onEdit: () => _editQuestion(index),
-                        onDelete: () =>
-                            setState(() => _questions.removeAt(index)),
+                        onDelete: () => setState(() {
+                          _questions.removeAt(index);
+                          _hasUnsavedChanges = true;
+                        }),
                       );
                     },
                   ),
@@ -396,6 +476,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
           icon: const Icon(Icons.description_outlined),
           label: const Text('معاينة ورقة الاختبار A4'),
         ),
+      ),
       ),
     );
   }
