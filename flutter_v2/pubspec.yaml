@@ -38,6 +38,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_icon.png
+    - assets/images/yemen_emblem_transparent.webp
 
   fonts:
     - family: OfficialExamAmiri
