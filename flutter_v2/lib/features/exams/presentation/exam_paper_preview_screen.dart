@@ -356,7 +356,7 @@ class _PaperHeader extends StatelessWidget {
                       height: 37,
                       child: Center(
                         child: Transform.translate(
-                          offset: const Offset(4, 0),
+                          offset: const Offset(20, 0),
                           child: Image.memory(
                             officialYemenEmblemImage,
                             width: 96,
