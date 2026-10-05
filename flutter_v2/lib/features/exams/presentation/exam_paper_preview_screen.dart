@@ -369,13 +369,16 @@ class _PaperHeader extends StatelessWidget {
                       width: double.infinity,
                       height: 37,
                       child: Center(
-                        child: Image.memory(
-                          officialYemenEmblemImage,
-                          width: 96,
-                          height: 37,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          filterQuality: FilterQuality.high,
+                        child: Transform.translate(
+                          offset: const Offset(20, 0),
+                          child: Image.memory(
+                            officialYemenEmblemImage,
+                            width: 96,
+                            height: 37,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.high,
+                          ),
                         ),
                       ),
                     ),
