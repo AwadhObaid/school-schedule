@@ -116,7 +116,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
               pw.Positioned(
                 left: _OfficialPaperGeometry.contentLeft,
                 top: _OfficialPaperGeometry.contentTop,
-                width: _OfficialPaperGeometry.contentWidth,
+                right: _OfficialPaperGeometry.contentRight,
                 height: _OfficialPaperGeometry.headerHeight,
                 child: _PdfOfficialHeader(
                   exam: widget.exam,
@@ -128,7 +128,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
               pw.Positioned(
                 left: _OfficialPaperGeometry.contentLeft,
                 top: _OfficialPaperGeometry.instructionTop,
-                width: _OfficialPaperGeometry.contentWidth,
+                right: _OfficialPaperGeometry.contentRight,
                 height: _OfficialPaperGeometry.instructionHeight,
                 child: _PdfInstructionBar(
                   text: widget.exam.template.instruction,
@@ -466,6 +466,8 @@ abstract final class _OfficialPaperGeometry {
   static const double contentTop = outerMargin + innerPaddingTop;
   static const double contentWidth =
       a4Width - (2 * (outerMargin + innerPaddingHorizontal));
+  static const double contentRight =
+      a4Width - contentLeft - contentWidth;
   static const double instructionTop = contentTop + headerHeight + 5.0;
 }
 
