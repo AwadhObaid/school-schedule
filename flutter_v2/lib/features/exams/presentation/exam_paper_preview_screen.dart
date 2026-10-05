@@ -496,15 +496,19 @@ class _InfoLine extends StatelessWidget {
             textAlign: TextAlign.right,
             maxLines: 1,
             text: TextSpan(
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.black,
+                fontFamily: officialExamFontFamily,
                 fontSize: _OfficialPaperTypography.headerRegular,
                 height: 1.0,
               ),
               children: [
                 TextSpan(
                   text: '$label: ',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontFamily: officialExamFontFamily,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 TextSpan(text: value.isEmpty ? '—' : value),
               ],
@@ -826,8 +830,9 @@ class _PaperFooter extends StatelessWidget {
               Text(
                 'الصفحة رقم $pageNumber',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.black,
+                  fontFamily: officialExamFontFamily,
                   fontSize: 8.5,
                 ),
               ),
