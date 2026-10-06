@@ -33,6 +33,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       TransformationController();
 
   double _zoom = 1.0;
+  int _currentPage = 0;
   bool _loading = true;
   Uint8List? _pdfBytes;
   List<Uint8List> _pageImages = const <Uint8List>[];
@@ -163,8 +164,11 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
               ? const Center(child: Text('لا توجد صفحات للمعاينة.'))
               : Container(
                   color: const Color(0xFFE5E7EB),
-                  child: PageView.builder(
+                  child: Stack(
+                    children: [
+                      PageView.builder(
                     itemCount: _pageImages.length,
+                    onPageChanged: (index) => setState(() => _currentPage = index),
                     itemBuilder: (context, index) {
                       return InteractiveViewer(
                         transformationController: _transformController,
@@ -192,6 +196,29 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                         ),
                       );
                     },
+                  ),
+                      if (_pageImages.length > 1)
+                        Positioned(
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.black87,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                child: Text(
+                                  'الصفحة ' + (_currentPage + 1).toString() + ' من ' + _pageImages.length.toString(),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
     );
