@@ -1114,59 +1114,6 @@ window.addEventListener('pointermove',function(e){
 window.addEventListener('pointerup',function(){resizeState=null;});
 
 editor.addEventListener('keydown',function(e){
-  if(e.key==='Tab' && activeCell){
-    const table=activeCell.closest('table');
-    const cells=Array.from(table.querySelectorAll('td,th'));
-    const i=cells.indexOf(activeCell);
-    if(i>=0){
-      e.preventDefault();
-      const next=cells[i+1];
-      if(next){selectTableCell(next,false);focusElement(next);}
-      else {tableAddRow();focusElement(activeCell);}
-    }
-  }
-});
-
-document.getElementById('tableDialog').addEventListener('click',function(e){
-  if(e.target===this) closeTableDialog();
-});
-
-document.addEventListener('click',function(e){
-  if(!e.target.closest('table') && !e.target.closest('#tableTools') && !e.target.closest('#tableDialog')){
-    showTableTools(null);
-    clearTableSelection();
-  }
-});
-function setMode(mode,button){
-  document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
-  button.classList.add('active');
-  document.body.classList.toggle('science-mode',mode==='science');
-  document.body.classList.toggle('text-mode',mode==='text');
-  const science=document.getElementById('scienceTools');
-  if(science) science.classList.toggle('visible',mode==='science');
-  editor.focus();
-  saveSel();
-}
-document.body.classList.add('text-mode');
-document.getElementById('tableRowsInput').addEventListener('keydown',e=>{if(e.key==='Enter')createTableFromDialog();});
-document.getElementById('tableColsInput').addEventListener('keydown',e=>{if(e.key==='Enter')createTableFromDialog();});
-function mexamGetHTML(){
-  const c=editor.cloneNode(true);
-  stripTableHandles(c);
-  c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==c)e.removeAttribute('contenteditable')});
-  c.querySelectorAll('table').forEach(t=>{t.classList.remove('table-selected');});
-  c.querySelectorAll('.table-cell-selected').forEach(e=>e.classList.remove('table-cell-selected'));
-  return c.innerHTML;
-}
-function mexamSetHTML(h){
-  editor.innerHTML=h||'<div><br></div>';
-  editor.querySelectorAll('table').forEach(normalizeTable);
-  saveSel();
-}
-function mexamFocus(){editor.focus();saveSel();}
-document.addEventListener('selectionchange',()=>{if(document.activeElement===editor||editor.contains(document.activeElement))saveSel()});
-editor.addEventListener('input',saveSel);
-editor.addEventListener('keydown',function(e){
   const target=e.target;
   if(!(target instanceof HTMLElement)) return;
   if((target.classList.contains('editable-part')||target.classList.contains('block-editable')) &&
@@ -1174,3 +1121,14 @@ editor.addEventListener('keydown',function(e){
     e.preventDefault();
     const block=target.closest('.science-block,.frac,.root,.matrix');
     if(block){
+      block.remove();
+      saveSel();
+    }
+  }
+});
+editor.addEventListener('keyup',saveSel);
+editor.addEventListener('mouseup',saveSel);
+editor.addEventListener('touchend',()=>setTimeout(saveSel,0));
+</script>
+</body>
+</html>''';
