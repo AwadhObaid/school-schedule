@@ -515,20 +515,20 @@ class ExamRichHtmlRenderer extends StatelessWidget {
   }
 
   String _horizontalAlign(String? style) {
-    final match = RegExp(r'text-align\\s*:\\s*([a-z-]+)', caseSensitive: false)
+    final match = RegExp(r'text-align\s*:\s*([a-z-]+)', caseSensitive: false)
         .firstMatch(style ?? '');
     return match?.group(1)?.toLowerCase() ?? 'right';
   }
 
   String _verticalAlign(String? style) {
-    final match = RegExp(r'vertical-align\\s*:\\s*([a-z-]+)', caseSensitive: false)
+    final match = RegExp(r'vertical-align\s*:\s*([a-z-]+)', caseSensitive: false)
         .firstMatch(style ?? '');
     return match?.group(1)?.toLowerCase() ?? 'middle';
   }
 
   double? _cssPercent(String? style, String property) {
     final match = RegExp(
-      property + r'\\s*:\\s*([0-9.]+)%',
+      property + r'\s*:\s*([0-9.]+)%',
       caseSensitive: false,
     ).firstMatch(style ?? '');
     return double.tryParse(match?.group(1) ?? '');
@@ -536,7 +536,7 @@ class ExamRichHtmlRenderer extends StatelessWidget {
 
   double? _cssPx(String? style, String property) {
     final match = RegExp(
-      property + r'\\s*:\\s*([0-9.]+)px',
+      property + r'\s*:\s*([0-9.]+)px',
       caseSensitive: false,
     ).firstMatch(style ?? '');
     return double.tryParse(match?.group(1) ?? '');
