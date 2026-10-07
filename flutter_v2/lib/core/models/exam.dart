@@ -44,6 +44,7 @@ class ExamQuestion {
     this.htmlContent = '',
     this.content = const <ExamContentBlock>[],
     this.marks = 1,
+    this.pageBreakBefore = false,
   });
 
   final String id;
@@ -56,6 +57,8 @@ class ExamQuestion {
   final String htmlContent;
   final List<ExamContentBlock> content;
   final double marks;
+  /// When true, this question starts on a fresh A4 page.
+  final bool pageBreakBefore;
 
   List<ExamContentBlock> get effectiveContent {
     if (content.isNotEmpty) return content;
@@ -74,6 +77,7 @@ class ExamQuestion {
       'htmlContent': htmlContent,
       'content': content.map((item) => item.toJson()).toList(),
       'marks': marks,
+      'pageBreakBefore': pageBreakBefore,
     };
   }
 
@@ -106,6 +110,8 @@ class ExamQuestion {
       htmlContent: json['htmlContent']?.toString() ?? '',
       content: content,
       marks: double.tryParse(json['marks']?.toString() ?? '') ?? 1,
+      pageBreakBefore: json['pageBreakBefore'] == true ||
+          json['pageBreakBefore']?.toString().toLowerCase() == 'true',
     );
   }
 }
