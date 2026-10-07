@@ -1178,6 +1178,78 @@ editor.addEventListener('keydown',function(e){
 editor.addEventListener('keyup',saveSel);
 editor.addEventListener('mouseup',saveSel);
 editor.addEventListener('touchend',()=>setTimeout(saveSel,0));
+
+editor.addEventListener('keydown',function(e){
+  if(e.key==='Tab' && activeCell){
+    const table=activeCell.closest('table');
+    const cells=Array.from(table.querySelectorAll('td,th'));
+    const i=cells.indexOf(activeCell);
+    if(i>=0){
+      e.preventDefault();
+      const next=cells[i+1];
+      if(next){
+        selectTableCell(next,false);
+        focusElement(next);
+      }else{
+        tableAddRow();
+        focusElement(activeCell);
+      }
+    }
+  }
+});
+
+document.getElementById('tableDialog').addEventListener('click',function(e){
+  if(e.target===this) closeTableDialog();
+});
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('table') &&
+     !e.target.closest('#tableTools') &&
+     !e.target.closest('#tableDialog')){
+    showTableTools(null);
+    clearTableSelection();
+  }
+});
+
+document.getElementById('tableRowsInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter') createTableFromDialog();
+});
+document.getElementById('tableColsInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter') createTableFromDialog();
+});
+
+function mexamGetHTML(){
+  const c=editor.cloneNode(true);
+  stripTableHandles(c);
+  c.querySelectorAll('[contenteditable]').forEach(function(e){
+    if(e!==c) e.removeAttribute('contenteditable');
+  });
+  c.querySelectorAll('table').forEach(function(t){
+    t.classList.remove('table-selected');
+  });
+  c.querySelectorAll('.table-cell-selected').forEach(function(e){
+    e.classList.remove('table-cell-selected');
+  });
+  return c.innerHTML;
+}
+
+function mexamSetHTML(h){
+  editor.innerHTML=h||'<div><br></div>';
+  editor.querySelectorAll('table').forEach(normalizeTable);
+  saveSel();
+}
+
+function mexamFocus(){
+  editor.focus();
+  saveSel();
+}
+
+document.addEventListener('selectionchange',function(){
+  if(document.activeElement===editor || editor.contains(document.activeElement)){
+    saveSel();
+  }
+});
+editor.addEventListener('input',saveSel);
 </script>
 </body>
 </html>''';
