@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
@@ -29,6 +30,7 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   late final List<List<ExamQuestion>> _pages;
+  late final List<GlobalKey> _pageKeys;
   final TransformationController _transformController =
       TransformationController();
 
@@ -42,6 +44,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   void initState() {
     super.initState();
     _pages = _paginate(widget.exam.questions);
+    _pageKeys = List<GlobalKey>.generate(_pages.length, (_) => GlobalKey());
     _loadPreview();
   }
 
@@ -53,6 +56,8 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
 
   Future<void> _loadPreview() async {
     try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
       final bytes = await _buildPdf(context, PdfPageFormat.a4);
       final images = <Uint8List>[];
 
@@ -149,8 +154,10 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
             ),
         ],
       ),
-      body: _loading
-          ? const Center(
+      body: Stack(
+        children: [
+          if (_loading)
+            const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -160,67 +167,90 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 ],
               ),
             )
-          : _pageImages.isEmpty
-              ? const Center(child: Text('لا توجد صفحات للمعاينة.'))
-              : Container(
-                  color: const Color(0xFFE5E7EB),
-                  child: Stack(
-                    children: [
-                      PageView.builder(
+          else if (_pageImages.isEmpty)
+            const Center(child: Text('لا توجد صفحات للمعاينة.'))
+          else
+            Container(
+              color: const Color(0xFFE5E7EB),
+              child: Stack(
+                children: [
+                  PageView.builder(
                     itemCount: _pageImages.length,
                     onPageChanged: (index) => setState(() => _currentPage = index),
-                    itemBuilder: (context, index) {
-                      return InteractiveViewer(
-                        transformationController: _transformController,
-                        minScale: 0.5,
-                        maxScale: 3.0,
-                        panEnabled: true,
-                        scaleEnabled: true,
-                        boundaryMargin: const EdgeInsets.all(120),
-                        onInteractionUpdate: (_) {
-                          final scale = _transformController.value
-                              .getMaxScaleOnAxis();
-                          if ((scale - _zoom).abs() > 0.01 && mounted) {
-                            setState(() => _zoom = scale.clamp(0.5, 3.0).toDouble());
-                          }
-                        },
-                        child: Center(
+                    itemBuilder: (context, index) => InteractiveViewer(
+                      transformationController: _transformController,
+                      minScale: 0.5,
+                      maxScale: 3.0,
+                      panEnabled: true,
+                      scaleEnabled: true,
+                      boundaryMargin: const EdgeInsets.all(120),
+                      onInteractionUpdate: (_) {
+                        final scale = _transformController.value.getMaxScaleOnAxis();
+                        if ((scale - _zoom).abs() > 0.01 && mounted) {
+                          setState(() => _zoom = scale.clamp(0.5, 3.0).toDouble());
+                        }
+                      },
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Image.memory(
+                            _pageImages[index],
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (_pageImages.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                           child: Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Image.memory(
-                              _pageImages[index],
-                              fit: BoxFit.contain,
-                              filterQuality: FilterQuality.high,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            child: Text(
+                              'الصفحة ' + (_currentPage + 1).toString() + ' من ' + _pageImages.length.toString(),
+                              style: const TextStyle(color: Colors.white),
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                      if (_pageImages.length > 1)
-                        Positioned(
-                          bottom: 16,
-                          left: 0,
-                          right: 0,
-                          child: Center(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.black87,
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                                child: Text(
-                                  'الصفحة ' + (_currentPage + 1).toString() + ' من ' + _pageImages.length.toString(),
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ),
-                          ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          IgnorePointer(
+            child: Opacity(
+              opacity: 0.01,
+              child: Column(
+                children: [
+                  for (var index = 0; index < _pages.length; index++)
+                    RepaintBoundary(
+                      key: _pageKeys[index],
+                      child: SizedBox(
+                        width: _OfficialPaperGeometry.a4Width,
+                        height: _OfficialPaperGeometry.a4Height,
+                        child: _PaperPage(
+                          exam: widget.exam,
+                          pageNumber: index + 1,
+                          totalPages: _pages.length,
+                          questions: _pages[index],
                         ),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -238,31 +268,35 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       _OfficialPaperGeometry.a4Height,
     );
 
-    // Render the official sheet entirely through Flutter so Arabic shaping,
-    // RTL layout, the official font, and the logo are produced exactly once.
     await loadOfficialExamFont();
 
     for (var index = 0; index < _pages.length; index++) {
-      final pageWidget = _PaperPage(
-        exam: widget.exam,
-        pageNumber: index + 1,
-        totalPages: _pages.length,
-        questions: _pages[index],
-      );
+      final renderObject =
+          _pageKeys[index].currentContext?.findRenderObject();
 
-      // 4x is approximately 300 DPI for this A4 logical canvas.
-      // This removes the old soft header and keeps one clean render path.
-      final wrapped = await WidgetWrapper.fromWidget(
-        context: context,
-        widget: pageWidget,
-        constraints: BoxConstraints.tight(
-          Size(pageFormat.width, pageFormat.height),
-        ),
-        pixelRatio: 4.0,
-        dpi: 300,
-      );
+      if (renderObject is! RenderRepaintBoundary) {
+        throw StateError('تعذر تجهيز صفحة ' + (index + 1).toString() + ' للمعاينة.');
+      }
 
-      final pngBytes = await _rawRgbaToPng(wrapped);
+      if (renderObject.debugNeedsPaint) {
+        await WidgetsBinding.instance.endOfFrame;
+      }
+      if (renderObject.debugNeedsPaint) {
+        throw StateError('لم تكتمل عملية رسم صفحة ' + (index + 1).toString() + '.');
+      }
+
+      final image = await renderObject.toImage(pixelRatio: 4.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        image.dispose();
+        throw StateError('تعذر تحويل صفحة ' + (index + 1).toString() + ' إلى PNG.');
+      }
+
+      final pngBytes = byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      );
+      image.dispose();
 
       pdf.addPage(
         pw.Page(
@@ -278,42 +312,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       );
     }
     return pdf.save();
-  }
-
-  static Future<Uint8List> _rawRgbaToPng(WidgetWrapper wrapped) async {
-    final width = wrapped.width;
-    final height = wrapped.height;
-
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      throw StateError('تعذر تحديد أبعاد صفحة الاختبار.');
-    }
-
-    final buffer = await ui.ImmutableBuffer.fromUint8List(wrapped.bytes);
-    final descriptor = ui.ImageDescriptor.raw(
-      buffer,
-      width: width,
-      height: height,
-      pixelFormat: ui.PixelFormat.rgba8888,
-    );
-    final codec = await descriptor.instantiateCodec();
-    final frame = await codec.getNextFrame();
-    final byteData = await frame.image.toByteData(
-      format: ui.ImageByteFormat.png,
-    );
-
-    frame.image.dispose();
-    codec.dispose();
-    descriptor.dispose();
-    buffer.dispose();
-
-    if (byteData == null) {
-      throw StateError('تعذر تحويل صفحة الاختبار إلى صورة PNG.');
-    }
-
-    return byteData.buffer.asUint8List(
-      byteData.offsetInBytes,
-      byteData.lengthInBytes,
-    );
   }
 
   static List<List<ExamQuestion>> _paginate(
