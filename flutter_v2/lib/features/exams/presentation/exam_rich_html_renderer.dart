@@ -398,38 +398,141 @@ class ExamRichHtmlRenderer extends StatelessWidget {
     final rows = table.querySelectorAll('tr');
     if (rows.isEmpty) return const SizedBox.shrink();
 
+    final tableWidth = _cssPercent(table.attributes['style'], 'width') ?? 100;
+    final firstRow = rows.first;
+    final columnFlex = <int>[];
+    for (final cell in firstRow.children.where(
+      (e) => e.localName == 'td' || e.localName == 'th',
+    )) {
+      final width = _cssPercent(cell.attributes['style'], 'width');
+      final span = int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
+      final flex = width == null ? 1 : width.clamp(1, 100).round();
+      for (var i = 0; i < span; i++) {
+        columnFlex.add(flex);
+      }
+    }
+    if (columnFlex.isEmpty) columnFlex.add(1);
+
+    final tableWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final row in rows)
+          Row(
+            textDirection: TextDirection.rtl,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final cell in row.children.where(
+                (e) => e.localName == 'td' || e.localName == 'th',
+              ))
+                Expanded(
+                  flex: _cellFlex(cell, columnFlex),
+                  child: _tableCell(cell),
+                ),
+            ],
+          ),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Table(
-        defaultColumnWidth: const IntrinsicColumnWidth(),
-        border: TableBorder.all(color: Colors.black, width: .6),
-        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-        children: [
-          for (final row in rows)
-            TableRow(
-              children: [
-                for (final cell in row.children.where(
-                  (e) => e.localName == 'td' || e.localName == 'th',
-                ))
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 3,
-                    ),
-                    child: Text(
-                      cell.text.trim(),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: fontSize * .9,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-        ],
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: FractionallySizedBox(
+          widthFactor: (tableWidth / 100).clamp(.2, 1.0),
+          alignment: Alignment.centerRight,
+          child: tableWidget,
+        ),
       ),
     );
+  }
+
+  Widget _tableCell(dom.Element cell) {
+    final style = cell.attributes['style'];
+    final minHeight = _cssPx(style, 'height') ?? 0;
+    final horizontal = _horizontalAlign(style);
+    final vertical = _verticalAlign(style);
+    final isHeader = cell.localName?.toLowerCase() == 'th';
+
+    final content = Container(
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: minHeight),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      decoration: BoxDecoration(
+        color: isHeader ? const Color(0xFFF3F4F6) : Colors.white,
+        border: Border.all(color: Colors.black, width: .6),
+      ),
+      child: Align(
+        alignment: _alignment(horizontal, vertical),
+        child: DefaultTextStyle(
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: fontSize * .9,
+            fontWeight: isHeader ? FontWeight.w700 : FontWeight.normal,
+          ),
+          child: _inlineFlow(cell),
+        ),
+      ),
+    );
+
+    return content;
+  }
+
+  int _cellFlex(dom.Element cell, List<int> fallback) {
+    final span = int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
+    final width = _cssPercent(cell.attributes['style'], 'width');
+    if (width != null) {
+      return width.clamp(1, 100).round();
+    }
+
+    final index = cell.cellIndex;
+    var flex = 0;
+    for (var i = 0; i < span; i++) {
+      flex += index + i < fallback.length ? fallback[index + i] : 1;
+    }
+    return flex.clamp(1, 1000);
+  }
+
+  Alignment _alignment(String horizontal, String vertical) {
+    final x = switch (horizontal) {
+      'left' => -1.0,
+      'center' => 0.0,
+      _ => 1.0,
+    };
+    final y = switch (vertical) {
+      'top' => -1.0,
+      'bottom' => 1.0,
+      _ => 0.0,
+    };
+    return Alignment(x, y);
+  }
+
+  String _horizontalAlign(String? style) {
+    final match = RegExp(r'text-align\\s*:\\s*([a-z-]+)', caseSensitive: false)
+        .firstMatch(style ?? '');
+    return match?.group(1)?.toLowerCase() ?? 'right';
+  }
+
+  String _verticalAlign(String? style) {
+    final match = RegExp(r'vertical-align\\s*:\\s*([a-z-]+)', caseSensitive: false)
+        .firstMatch(style ?? '');
+    return match?.group(1)?.toLowerCase() ?? 'middle';
+  }
+
+  double? _cssPercent(String? style, String property) {
+    final match = RegExp(
+      property + r'\\s*:\\s*([0-9.]+)%',
+      caseSensitive: false,
+    ).firstMatch(style ?? '');
+    return double.tryParse(match?.group(1) ?? '');
+  }
+
+  double? _cssPx(String? style, String property) {
+    final match = RegExp(
+      property + r'\\s*:\\s*([0-9.]+)px',
+      caseSensitive: false,
+    ).firstMatch(style ?? '');
+    return double.tryParse(match?.group(1) ?? '');
   }
 
   Widget _scientificText(dom.Element node, {bool bold = false}) {
