@@ -485,12 +485,12 @@ class ExamRichHtmlRenderer extends StatelessWidget {
       return width.clamp(1, 100).round();
     }
 
-    final index = cell.cellIndex;
+    final index = cell.parent?.children.indexOf(cell) ?? 0;
     var flex = 0;
     for (var i = 0; i < span; i++) {
       flex += index + i < fallback.length ? fallback[index + i] : 1;
     }
-    return flex.clamp(1, 1000);
+    return flex.clamp(1, 1000).toInt();
   }
 
   Alignment _alignment(String horizontal, String vertical) {
