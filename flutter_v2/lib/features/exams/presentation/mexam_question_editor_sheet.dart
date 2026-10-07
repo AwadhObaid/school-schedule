@@ -527,8 +527,28 @@ button:active{background:#0ea5e9}
 .eq-root-body{border-top:2px solid currentColor;padding:1px 5px;min-width:20px}
 sup{font-size:.72em;vertical-align:super}
 sub{font-size:.72em;vertical-align:sub}
-table{border-collapse:collapse;width:100%;margin:8px 0}
-td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
+table{border-collapse:collapse;width:100%;margin:8px 0;table-layout:fixed}
+td,th{border:1px solid #94a3b8;padding:6px;min-width:45px;position:relative;vertical-align:middle;word-break:break-word}
+#tableTools{display:none;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px;background:#172554;border-bottom:1px solid #334155;direction:rtl;flex-shrink:0;align-items:center}
+#tableTools.visible{display:flex}
+#tableTools .toolTitle{color:#bfdbfe}
+#tableTools button{height:34px}
+#tableTools .danger{background:#7f1d1d;border-color:#991b1b}
+#tableTools .accent{background:#075985;border-color:#0369a1}
+.table-selected{outline:2px solid #38bdf8!important;outline-offset:2px}
+.table-cell-selected{background:rgba(56,189,248,.14)!important;box-shadow:inset 0 0 0 2px #38bdf8}
+#tableDialog{display:none;position:fixed;inset:0;z-index:50;background:rgba(2,6,23,.72);align-items:center;justify-content:center;padding:18px}
+#tableDialog.visible{display:flex}
+#tableDialogCard{width:min(420px,94vw);background:#1e293b;border:1px solid #64748b;border-radius:10px;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.45);direction:rtl}
+#tableDialogCard h3{margin:0 0 12px;font-size:18px}
+.tableGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tableField{display:flex;flex-direction:column;gap:5px}
+.tableField label{font-size:12px;color:#cbd5e1}
+.tableField input{height:38px;border:1px solid #64748b;border-radius:6px;background:#0f172a;color:#fff;padding:0 9px;font-size:15px}
+.tableDialogActions{display:flex;gap:8px;margin-top:14px}
+.tableDialogActions button{flex:1}
+.table-handle-col{position:absolute;right:-4px;top:0;width:9px;height:100%;cursor:col-resize;z-index:4}
+.table-handle-row{position:absolute;left:0;bottom:-4px;width:100%;height:9px;cursor:row-resize;z-index:4}
 #scienceTools{background:#0b1220;display:none}
 #scienceTools.visible{display:flex}
 #modeBar{display:flex;gap:6px;padding:6px;background:#111827;direction:rtl;flex-shrink:0;border-bottom:1px solid #334155}
@@ -573,6 +593,17 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 <div id="modeBar">
   <button class="mode active" onclick="setMode('text',this)">✍️ كتابة</button>
   <button class="mode" onclick="setMode('science',this)">🔬 رياضيات وعلوم</button>
+</div>
+<div id="tableTools">
+  <span class="toolTitle">أدوات الجدول</span>
+  <button class="accent" onclick="tableAddRow()">＋ صف</button>
+  <button class="accent" onclick="tableAddColumn()">＋ عمود</button>
+  <button onclick="tableDeleteRow()">− صف</button>
+  <button onclick="tableDeleteColumn()">− عمود</button>
+  <button onclick="tableMerge()">دمج</button>
+  <button onclick="tableSplit()">فصل</button>
+  <button onclick="tableProperties()">خصائص</button>
+  <button class="danger" onclick="tableDelete()">حذف الجدول</button>
 </div>
 <div id="toolbar">
 <button onclick="cmd('bold')">B</button>
@@ -628,6 +659,21 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
   <button onclick="quadratic()">تربيعية</button>
   <button onclick="pythagoras()">فيثاغورس</button>
   <button onclick="table2()">جدول 2×2</button>
+</div>
+<div id="tableDialog">
+  <div id="tableDialogCard">
+    <h3 id="tableDialogTitle">إضافة جدول</h3>
+    <div class="tableGrid">
+      <div class="tableField"><label>عدد الصفوف</label><input id="tableRowsInput" type="number" min="1" max="30" value="3"></div>
+      <div class="tableField"><label>عدد الأعمدة</label><input id="tableColsInput" type="number" min="1" max="12" value="2"></div>
+      <div class="tableField"><label>عرض الجدول %</label><input id="tableWidthInput" type="number" min="20" max="100" value="100"></div>
+      <div class="tableField"><label>ارتفاع الصف px</label><input id="tableHeightInput" type="number" min="20" max="240" value="36"></div>
+    </div>
+    <div class="tableDialogActions">
+      <button onclick="closeTableDialog()">إلغاء</button>
+      <button class="accent" onclick="createTableFromDialog()">إدراج الجدول</button>
+    </div>
+  </div>
 </div>
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
@@ -731,9 +777,366 @@ function pythagoras(){
 function table2(){
   insertScience('<table class="science-table" data-science-id=""><tr><td contenteditable="true">القيمة</td><td contenteditable="true">الوحدة</td></tr><tr><td contenteditable="true"></td><td contenteditable="true"></td></tr></table><span> </span>','td');
 }
-function insertTable(){
-  insertHtml('<table><tr><th>العنوان</th><th>القيمة</th></tr><tr><td>...</td><td>...</td></tr><tr><td>...</td><td>...</td></tr></table><p><br></p>');
+let activeTable=null;
+let activeCell=null;
+let selectedCells=[];
+let resizeState=null;
+
+function clearTableSelection(){
+  selectedCells.forEach(c=>c.classList.remove('table-cell-selected'));
+  selectedCells=[];
 }
+
+function showTableTools(table){
+  activeTable=table;
+  document.querySelectorAll('table.table-selected').forEach(t=>t.classList.remove('table-selected'));
+  if(table) {
+    table.classList.add('table-selected');
+    document.getElementById('tableTools').classList.add('visible');
+  } else {
+    document.getElementById('tableTools').classList.remove('visible');
+  }
+}
+
+function selectTableCell(cell, additive){
+  if(!cell) return;
+  const table=cell.closest('table');
+  if(!table) return;
+  if(!additive) clearTableSelection();
+  if(!selectedCells.includes(cell)){
+    selectedCells.push(cell);
+    cell.classList.add('table-cell-selected');
+  }
+  activeCell=cell;
+  showTableTools(table);
+  saveSel();
+}
+
+function normalizeTable(table){
+  if(!table) return;
+  table.style.tableLayout='fixed';
+  if(!table.style.width) table.style.width='100%';
+  table.querySelectorAll('td,th').forEach(cell=>{
+    cell.setAttribute('contenteditable','true');
+    if(!cell.style.minHeight) cell.style.minHeight='30px';
+    if(!cell.style.padding) cell.style.padding='6px';
+  });
+  installTableHandles(table);
+}
+
+function installTableHandles(table){
+  table.querySelectorAll('td,th').forEach(cell=>{
+    if(!cell.querySelector(':scope > .table-handle-col')){
+      const col=document.createElement('span');
+      col.className='table-handle-col';
+      col.setAttribute('contenteditable','false');
+      cell.appendChild(col);
+    }
+    if(!cell.querySelector(':scope > .table-handle-row')){
+      const row=document.createElement('span');
+      row.className='table-handle-row';
+      row.setAttribute('contenteditable','false');
+      cell.appendChild(row);
+    }
+  });
+}
+
+function stripTableHandles(root){
+  root.querySelectorAll('.table-handle-col,.table-handle-row').forEach(h=>h.remove());
+}
+
+function tableCellInfo(cell){
+  const row=cell.parentElement;
+  const table=cell.closest('table');
+  return {table:table,row:row,rowIndex:row ? row.rowIndex : -1,colIndex:cell.cellIndex};
+}
+
+function insertTable(){
+  openTableDialog();
+}
+
+function openTableDialog(){
+  document.getElementById('tableDialogTitle').textContent='إضافة جدول';
+  document.getElementById('tableDialog').classList.add('visible');
+  setTimeout(()=>document.getElementById('tableRowsInput').focus(),0);
+}
+
+function closeTableDialog(){
+  document.getElementById('tableDialog').classList.remove('visible');
+}
+
+function createTableFromDialog(){
+  const rows=Math.max(1,Math.min(30,parseInt(document.getElementById('tableRowsInput').value||'3',10)));
+  const cols=Math.max(1,Math.min(12,parseInt(document.getElementById('tableColsInput').value||'2',10)));
+  const width=Math.max(20,Math.min(100,parseInt(document.getElementById('tableWidthInput').value||'100',10)));
+  const height=Math.max(20,Math.min(240,parseInt(document.getElementById('tableHeightInput').value||'36',10)));
+  let html='<table style="width:'+width+'%"><tbody>';
+  for(let r=0;r<rows;r++){
+    html+='<tr style="height:'+height+'px">';
+    for(let c=0;c<cols;c++){
+      html+=r===0?'<th style="height:'+height+'px">عنوان</th>':'<td style="height:'+height+'px"></td>';
+    }
+    html+='</tr>';
+  }
+  html+='</tbody></table><p><br></p>';
+  closeTableDialog();
+  insertHtml(html);
+  const tables=editor.querySelectorAll('table');
+  const table=tables[tables.length-1];
+  if(table){
+    normalizeTable(table);
+    selectTableCell(table.rows[0].cells[0],false);
+    focusElement(table.rows[0].cells[0]);
+  }
+}
+
+function selectedTable(){
+  return activeTable || (activeCell ? activeCell.closest('table') : null);
+}
+
+function tableAddRow(){
+  const table=selectedTable();
+  if(!table) return;
+  const ref=activeCell ? activeCell.parentElement : table.rows[table.rows.length-1];
+  const row=table.insertRow(ref ? ref.rowIndex+1 : -1);
+  const colCount=Math.max(1, table.rows[0] ? table.rows[0].cells.length : 1);
+  for(let i=0;i<colCount;i++){
+    const cell=row.insertCell(-1);
+    cell.innerHTML='<br>';
+    cell.style.height='30px';
+  }
+  normalizeTable(table);
+  selectTableCell(row.cells[Math.min(activeCell ? activeCell.cellIndex : 0,row.cells.length-1)],false);
+}
+
+function tableDeleteRow(){
+  const table=selectedTable();
+  if(!table || table.rows.length<=1) return;
+  const index=activeCell ? activeCell.parentElement.rowIndex : table.rows.length-1;
+  table.deleteRow(index);
+  normalizeTable(table);
+  const row=table.rows[Math.min(index,table.rows.length-1)];
+  selectTableCell(row.cells[0],false);
+}
+
+function tableAddColumn(){
+  const table=selectedTable();
+  if(!table) return;
+  const index=activeCell ? activeCell.cellIndex+1 : (table.rows[0]?.cells.length||0);
+  for(const row of table.rows){
+    const cell=row.insertCell(Math.min(index,row.cells.length));
+    cell.innerHTML='<br>';
+    cell.style.height=(row.style.height||'30px');
+  }
+  normalizeTable(table);
+  const row=table.rows[activeCell ? activeCell.parentElement.rowIndex : 0];
+  selectTableCell(row.cells[Math.min(index,row.cells.length-1)],false);
+}
+
+function tableDeleteColumn(){
+  const table=selectedTable();
+  if(!table) return;
+  const colCount=table.rows[0]?.cells.length||0;
+  if(colCount<=1) return;
+  const index=activeCell ? activeCell.cellIndex : colCount-1;
+  for(const row of table.rows){
+    if(row.cells[index]) row.deleteCell(index);
+  }
+  normalizeTable(table);
+  const row=table.rows[Math.min(activeCell ? activeCell.parentElement.rowIndex : 0,table.rows.length-1)];
+  selectTableCell(row.cells[Math.min(index,row.cells.length-1)],false);
+}
+
+function tableMerge(){
+  if(selectedCells.length<2) return;
+  const table=selectedCells[0].closest('table');
+  if(!selectedCells.every(c=>c.closest('table')===table)) return;
+  const cells=selectedCells.slice().sort((a,b)=>a.parentElement.rowIndex-b.parentElement.rowIndex || a.cellIndex-b.cellIndex);
+  const first=cells[0];
+  const sameRow=cells.every(c=>c.parentElement===first.parentElement);
+  const sameCol=cells.every(c=>c.cellIndex===first.cellIndex);
+  if(!sameRow && !sameCol) return;
+  if(cells.length>1){
+    if(sameRow){
+      const max=Math.max(...cells.map(c=>c.cellIndex));
+      const contiguous=cells.length===max-first.cellIndex+1;
+      if(!contiguous) return;
+      first.colSpan=cells.length;
+    }else{
+      const max=Math.max(...cells.map(c=>c.parentElement.rowIndex));
+      const contiguous=cells.length===max-first.parentElement.rowIndex+1;
+      if(!contiguous) return;
+      first.rowSpan=cells.length;
+    }
+    for(let i=1;i<cells.length;i++){
+      if(cells[i]!==first) first.innerHTML+=(first.innerHTML.trim()?'<br>':'')+cells[i].innerHTML;
+      cells[i].remove();
+    }
+    normalizeTable(table);
+    selectTableCell(first,false);
+  }
+}
+
+function tableSplit(){
+  if(!activeCell) return;
+  const cell=activeCell;
+  const table=cell.closest('table');
+  const row=cell.parentElement;
+  const colspan=cell.colSpan||1;
+  const rowspan=cell.rowSpan||1;
+  if(colspan>1){
+    cell.colSpan=1;
+    for(let i=1;i<colspan;i++){
+      const newCell=document.createElement(cell.tagName.toLowerCase());
+      newCell.innerHTML='<br>';
+      newCell.style.height=cell.style.height||'30px';
+      row.insertBefore(newCell,cell.nextSibling);
+    }
+  }
+  if(rowspan>1){
+    cell.rowSpan=1;
+    const start=row.rowIndex+1;
+    for(let r=0;r<rowspan-1;r++){
+      const target=table.rows[start+r];
+      if(!target) break;
+      const newCell=document.createElement(cell.tagName.toLowerCase());
+      newCell.innerHTML='<br>';
+      newCell.style.height=target.style.height||'30px';
+      target.insertBefore(newCell, target.cells[Math.min(cell.cellIndex,target.cells.length)]);
+    }
+  }
+  normalizeTable(table);
+  selectTableCell(cell,false);
+}
+
+function tableDelete(){
+  const table=selectedTable();
+  if(!table) return;
+  table.remove();
+  activeTable=null;
+  activeCell=null;
+  clearTableSelection();
+  document.getElementById('tableTools').classList.remove('visible');
+}
+
+function tableProperties(){
+  const table=selectedTable();
+  if(!table) return;
+  document.getElementById('tableDialogTitle').textContent='خصائص الجدول';
+  document.getElementById('tableRowsInput').value=table.rows.length;
+  document.getElementById('tableColsInput').value=table.rows[0]?.cells.length||1;
+  document.getElementById('tableWidthInput').value=parseInt(table.style.width)||100;
+  document.getElementById('tableHeightInput').value=parseInt(table.rows[0]?.style.height)||36;
+  document.getElementById('tableDialog').classList.add('visible');
+  const action=document.querySelector('#tableDialogCard .tableDialogActions .accent');
+  action.textContent='تطبيق';
+  action.onclick=applyTableProperties;
+}
+
+function applyTableProperties(){
+  const table=selectedTable();
+  if(!table) return;
+  const width=Math.max(20,Math.min(100,parseInt(document.getElementById('tableWidthInput').value||'100',10)));
+  const height=Math.max(20,Math.min(240,parseInt(document.getElementById('tableHeightInput').value||'36',10)));
+  table.style.width=width+'%';
+  for(const row of table.rows) row.style.height=height+'px';
+  normalizeTable(table);
+  const action=document.querySelector('#tableDialogCard .tableDialogActions .accent');
+  action.textContent='إدراج الجدول';
+  action.onclick=createTableFromDialog;
+  closeTableDialog();
+}
+
+function resizeColumn(cell,delta){
+  const table=cell.closest('table');
+  if(!table) return;
+  const index=cell.cellIndex;
+  const row=cell.parentElement;
+  const base=Math.max(45,cell.getBoundingClientRect().width);
+  const next=Math.max(45,base+delta);
+  const total=Math.max(1,table.getBoundingClientRect().width);
+  const pct=Math.min(90,Math.max(5,(next/total)*100));
+  for(const r of table.rows){
+    const c=r.cells[index];
+    if(c && (c.colSpan||1)===1) c.style.width=pct+'%';
+  }
+}
+
+function resizeRow(cell,delta){
+  const row=cell.parentElement;
+  const next=Math.max(24,Math.max(24,row.getBoundingClientRect().height)+delta);
+  row.style.height=next+'px';
+  for(const c of row.cells) c.style.height=next+'px';
+}
+
+editor.addEventListener('click',function(e){
+  const cell=e.target.closest && e.target.closest('td,th');
+  if(cell && editor.contains(cell)){
+    selectTableCell(cell,e.shiftKey);
+    return;
+  }
+  if(!e.target.closest || !e.target.closest('table')){
+    showTableTools(null);
+    clearTableSelection();
+  }
+});
+
+editor.addEventListener('dblclick',function(e){
+  const cell=e.target.closest && e.target.closest('td,th');
+  if(cell) focusElement(cell);
+});
+
+editor.addEventListener('pointerdown',function(e){
+  const cell=e.target.closest && e.target.closest('td,th');
+  if(!cell || !editor.contains(cell)) return;
+  const rect=cell.getBoundingClientRect();
+  const nearRight=Math.abs(e.clientX-rect.right)<10;
+  const nearBottom=Math.abs(e.clientY-rect.bottom)<10;
+  if(nearRight && (cell.colSpan||1)===1){
+    resizeState={kind:'col',cell:cell,last:e.clientX};
+    e.preventDefault();
+  }else if(nearBottom){
+    resizeState={kind:'row',cell:cell,last:e.clientY};
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('pointermove',function(e){
+  if(!resizeState) return;
+  if(resizeState.kind==='col'){
+    const delta=e.clientX-resizeState.last;
+    if(Math.abs(delta)>=1){resizeColumn(resizeState.cell,delta);resizeState.last=e.clientX;}
+  }else{
+    const delta=e.clientY-resizeState.last;
+    if(Math.abs(delta)>=1){resizeRow(resizeState.cell,delta);resizeState.last=e.clientY;}
+  }
+});
+window.addEventListener('pointerup',function(){resizeState=null;});
+
+editor.addEventListener('keydown',function(e){
+  if(e.key==='Tab' && activeCell){
+    const table=activeCell.closest('table');
+    const cells=Array.from(table.querySelectorAll('td,th'));
+    const i=cells.indexOf(activeCell);
+    if(i>=0){
+      e.preventDefault();
+      const next=cells[i+1];
+      if(next){selectTableCell(next,false);focusElement(next);}
+      else {tableAddRow();focusElement(activeCell);}
+    }
+  }
+});
+
+document.getElementById('tableDialog').addEventListener('click',function(e){
+  if(e.target===this) closeTableDialog();
+});
+
+document.addEventListener('click',function(e){
+  if(!e.target.closest('table') && !e.target.closest('#tableTools') && !e.target.closest('#tableDialog')){
+    showTableTools(null);
+    clearTableSelection();
+  }
+});
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
   button.classList.add('active');
@@ -745,8 +1148,21 @@ function setMode(mode,button){
   saveSel();
 }
 document.body.classList.add('text-mode');
-function mexamGetHTML(){const c=editor.cloneNode(true);c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==editor)e.removeAttribute('contenteditable')});return c.innerHTML;}
-function mexamSetHTML(h){editor.innerHTML=h||'<div><br></div>';saveSel();}
+document.getElementById('tableRowsInput').addEventListener('keydown',e=>{if(e.key==='Enter')createTableFromDialog();});
+document.getElementById('tableColsInput').addEventListener('keydown',e=>{if(e.key==='Enter')createTableFromDialog();});
+function mexamGetHTML(){
+  const c=editor.cloneNode(true);
+  stripTableHandles(c);
+  c.querySelectorAll('[contenteditable]').forEach(e=>{if(e!==c)e.removeAttribute('contenteditable')});
+  c.querySelectorAll('table').forEach(t=>{t.classList.remove('table-selected');});
+  c.querySelectorAll('.table-cell-selected').forEach(e=>e.classList.remove('table-cell-selected'));
+  return c.innerHTML;
+}
+function mexamSetHTML(h){
+  editor.innerHTML=h||'<div><br></div>';
+  editor.querySelectorAll('table').forEach(normalizeTable);
+  saveSel();
+}
 function mexamFocus(){editor.focus();saveSel();}
 document.addEventListener('selectionchange',()=>{if(document.activeElement===editor||editor.contains(document.activeElement))saveSel()});
 editor.addEventListener('input',saveSel);
@@ -758,14 +1174,3 @@ editor.addEventListener('keydown',function(e){
     e.preventDefault();
     const block=target.closest('.science-block,.frac,.root,.matrix');
     if(block){
-      block.remove();
-      saveSel();
-    }
-  }
-});
-editor.addEventListener('keyup',saveSel);
-editor.addEventListener('mouseup',saveSel);
-editor.addEventListener('touchend',()=>setTimeout(saveSel,0));
-</script>
-</body>
-</html>''';
