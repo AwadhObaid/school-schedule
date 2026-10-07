@@ -332,6 +332,16 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
 
     for (final question in questions) {
       final footprint = _questionFootprint(question);
+
+      // A manual page break always wins over automatic pagination.
+      if (question.pageBreakBefore && current.isNotEmpty) {
+        pages.add(List.unmodifiable(current));
+        current = <ExamQuestion>[];
+        used = 0;
+      }
+
+      // Questions are atomic paper blocks: a question, including its tables,
+      // options and answer area, is never split between two A4 pages.
       if (current.isNotEmpty && used + footprint > pageCapacity) {
         pages.add(List.unmodifiable(current));
         current = <ExamQuestion>[];
@@ -353,6 +363,29 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     final textLength = question.prompt.trim().length;
     final textLines = (textLength / 62).ceil().clamp(1, 8);
     var units = 2.7 + textLines * 0.9;
+
+    final html = question.htmlContent;
+    final tableRows = RegExp(r'<tr\\b', caseSensitive: false)
+        .allMatches(html)
+        .length;
+    final tableCells = RegExp(r'<(?:td|th)\\b', caseSensitive: false)
+        .allMatches(html)
+        .length;
+    if (tableRows > 0) {
+      // Tables in the reference exam are substantial blocks. Reserve space
+      // for every row and a little extra for headings/borders.
+      units += 1.4 + (tableRows * 1.55);
+      if (tableCells > tableRows * 2) {
+        units += ((tableCells - tableRows * 2) / 4) * 0.35;
+      }
+    }
+
+    final htmlBlocks = RegExp(r'<(?:div|p|br)\\b', caseSensitive: false)
+        .allMatches(html)
+        .length;
+    if (htmlBlocks > 1) {
+      units += ((htmlBlocks - 1) * 0.22).clamp(0, 2.5);
+    }
 
     final equations = question.effectiveContent
         .where((block) => block.type == ExamContentBlockType.equation)
