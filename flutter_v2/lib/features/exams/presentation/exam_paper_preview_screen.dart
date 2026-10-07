@@ -30,7 +30,8 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   late final List<List<ExamQuestion>> _pages;
-  late final List<GlobalKey> _pageKeys;
+  final GlobalKey _captureKey = GlobalKey();
+  int _capturePageIndex = 0;
   final TransformationController _transformController =
       TransformationController();
 
@@ -44,7 +45,6 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   void initState() {
     super.initState();
     _pages = _paginate(widget.exam.questions);
-    _pageKeys = List<GlobalKey>.generate(_pages.length, (_) => GlobalKey());
     _loadPreview();
   }
 
@@ -140,18 +140,16 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
             onPressed: _loading ? null : _resetZoom,
             icon: const Icon(Icons.fit_screen_outlined),
           ),
-          if (_pdfBytes != null)
-            IconButton(
-              tooltip: 'مشاركة PDF',
-              onPressed: _share,
-              icon: const Icon(Icons.share_outlined),
-            ),
-          if (_pdfBytes != null)
-            IconButton(
-              tooltip: 'طباعة',
-              onPressed: _print,
-              icon: const Icon(Icons.print_outlined),
-            ),
+          IconButton(
+            tooltip: 'مشاركة PDF',
+            onPressed: _pdfBytes == null ? null : _share,
+            icon: const Icon(Icons.share_outlined),
+          ),
+          IconButton(
+            tooltip: 'طباعة',
+            onPressed: _pdfBytes == null ? null : _print,
+            icon: const Icon(Icons.print_outlined),
+          ),
         ],
       ),
       body: Stack(
@@ -226,26 +224,27 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 ],
               ),
             ),
+          // Keep exactly one live A4 render target in the normal Flutter
+          // tree. Capturing many boundaries at once made table-heavy pages
+          // vulnerable to clipping/paint-order issues.
           IgnorePointer(
             child: Opacity(
               opacity: 0.01,
-              child: Column(
-                children: [
-                  for (var index = 0; index < _pages.length; index++)
-                    RepaintBoundary(
-                      key: _pageKeys[index],
-                      child: SizedBox(
-                        width: _OfficialPaperGeometry.a4Width,
-                        height: _OfficialPaperGeometry.a4Height,
-                        child: _PaperPage(
-                          exam: widget.exam,
-                          pageNumber: index + 1,
-                          totalPages: _pages.length,
-                          questions: _pages[index],
-                        ),
-                      ),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: RepaintBoundary(
+                  key: _captureKey,
+                  child: SizedBox(
+                    width: _OfficialPaperGeometry.a4Width,
+                    height: _OfficialPaperGeometry.a4Height,
+                    child: _PaperPage(
+                      exam: widget.exam,
+                      pageNumber: _capturePageIndex + 1,
+                      totalPages: _pages.length,
+                      questions: _pages[_capturePageIndex],
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -271,14 +270,28 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     await loadOfficialExamFont();
 
     for (var index = 0; index < _pages.length; index++) {
+      if (!mounted) {
+        throw StateError('تم إغلاق شاشة المعاينة أثناء تجهيز الصفحة.');
+      }
+
+      // Switch the single live render target to this page, then wait for
+      // layout + paint to settle before calling RenderRepaintBoundary.toImage.
+      if (_capturePageIndex != index) {
+        setState(() => _capturePageIndex = index);
+      }
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+
       final renderObject =
-          _pageKeys[index].currentContext?.findRenderObject();
+          _captureKey.currentContext?.findRenderObject();
 
       if (renderObject is! RenderRepaintBoundary) {
         throw StateError('تعذر تجهيز صفحة ' + (index + 1).toString() + ' للمعاينة.');
       }
 
-      if (renderObject.debugNeedsPaint) {
+      var paintAttempts = 0;
+      while (renderObject.debugNeedsPaint && paintAttempts < 3) {
+        paintAttempts++;
         await WidgetsBinding.instance.endOfFrame;
       }
       if (renderObject.debugNeedsPaint) {
