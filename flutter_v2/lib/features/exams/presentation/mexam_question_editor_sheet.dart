@@ -204,6 +204,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
   late final TextEditingController _marks;
   ExamQuestionType _type = ExamQuestionType.multipleChoice;
   int? _correctOptionIndex;
+  bool _pageBreakBefore = false;
   final List<TextEditingController> _options = <TextEditingController>[];
   bool _ready = false;
   bool _saving = false;
@@ -214,6 +215,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
     final q = widget.initial;
     _type = q?.type ?? ExamQuestionType.multipleChoice;
     _correctOptionIndex = q?.correctOptionIndex;
+    _pageBreakBefore = q?.pageBreakBefore ?? false;
     _marks = TextEditingController(text: (q?.marks ?? 1).toString());
 
     for (final value in q?.options ?? const <String>[]) {
@@ -383,6 +385,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
       _type = result.type;
       _marks.text = result.marks.toString();
       _correctOptionIndex = result.correctOptionIndex;
+      _pageBreakBefore = result.pageBreakBefore;
       for (final item in _options) {
         item.dispose();
       }
