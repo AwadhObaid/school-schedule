@@ -583,6 +583,7 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px}
 <button onclick="cmd('justifyLeft')">يسار</button>
 <button onclick="cmd('insertUnorderedList')">• قائمة</button>
 <button onclick="cmd('insertOrderedList')">1. قائمة</button>
+<button onclick="insertTable()">▦ جدول</button>
 <button onclick="cmd('undo')">↶</button>
 <button onclick="cmd('redo')">↷</button>
 <button onclick="cmd('removeFormat')">تنظيف</button>
@@ -729,6 +730,9 @@ function pythagoras(){
 }
 function table2(){
   insertScience('<table class="science-table" data-science-id=""><tr><td contenteditable="true">القيمة</td><td contenteditable="true">الوحدة</td></tr><tr><td contenteditable="true"></td><td contenteditable="true"></td></tr></table><span> </span>','td');
+}
+function insertTable(){
+  insertHtml('<table><tr><th>العنوان</th><th>القيمة</th></tr><tr><td>...</td><td>...</td></tr><tr><td>...</td><td>...</td></tr></table><p><br></p>');
 }
 function setMode(mode,button){
   document.querySelectorAll('#modeBar .mode').forEach(b=>b.classList.remove('active'));
