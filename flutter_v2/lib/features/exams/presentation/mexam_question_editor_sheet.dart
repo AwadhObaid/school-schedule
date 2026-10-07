@@ -19,11 +19,13 @@ class _QuestionSettings {
     required this.marks,
     required this.correctOptionIndex,
     required this.options,
+    required this.pageBreakBefore,
   });
   final ExamQuestionType type;
   final double marks;
   final int? correctOptionIndex;
   final List<String> options;
+  final bool pageBreakBefore;
 }
 
 class _QuestionSettingsSheet extends StatefulWidget {
@@ -32,11 +34,13 @@ class _QuestionSettingsSheet extends StatefulWidget {
     required this.marks,
     required this.correctOptionIndex,
     required this.options,
+    required this.pageBreakBefore,
   });
   final ExamQuestionType type;
   final double marks;
   final int? correctOptionIndex;
   final List<String> options;
+  final bool pageBreakBefore;
 
   @override
   State<_QuestionSettingsSheet> createState() => _QuestionSettingsSheetState();
@@ -47,6 +51,7 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
   late final TextEditingController _marks;
   late int? _correctOptionIndex;
   late final List<TextEditingController> _options;
+  late bool _pageBreakBefore;
 
   @override
   void initState() {
@@ -54,6 +59,7 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
     _type = widget.type;
     _marks = TextEditingController(text: widget.marks.toString());
     _correctOptionIndex = widget.correctOptionIndex;
+    _pageBreakBefore = widget.pageBreakBefore;
     _options = widget.options.map((value) => TextEditingController(text: value)).toList();
     if (_type == ExamQuestionType.multipleChoice && _options.length < 2) {
       _options.add(TextEditingController());
@@ -85,6 +91,7 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
         options: _type == ExamQuestionType.multipleChoice
             ? _options.map((e) => e.text.trim()).toList()
             : const <String>[],
+        pageBreakBefore: _pageBreakBefore,
       ),
     );
   }
@@ -132,6 +139,14 @@ class _QuestionSettingsSheetState extends State<_QuestionSettingsSheet> {
                 labelText: 'درجة السؤال',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile.adaptive(
+              value: _pageBreakBefore,
+              onChanged: (value) => setState(() => _pageBreakBefore = value),
+              title: const Text('بدء هذا السؤال في صفحة جديدة'),
+              subtitle: const Text('يُستخدم للفصل بين أقسام الاختبار أو الأقسام الطويلة.'),
+              contentPadding: EdgeInsets.zero,
             ),
             if (_type == ExamQuestionType.multipleChoice) ...[
               const SizedBox(height: 14),
@@ -274,6 +289,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
         answer: widget.initial?.answer ?? '',
         content: widget.initial?.content ?? const [],
         marks: double.tryParse(_marks.text.trim()) ?? 1,
+        pageBreakBefore: widget.initial?.pageBreakBefore ?? false,
       ),
     );
   }
@@ -358,6 +374,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
         marks: double.tryParse(_marks.text.trim()) ?? 1,
         correctOptionIndex: _correctOptionIndex,
         options: _options.map((item) => item.text).toList(),
+        pageBreakBefore: widget.initial?.pageBreakBefore ?? false,
       ),
     );
     if (result == null || !mounted) return;
