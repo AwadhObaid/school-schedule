@@ -260,6 +260,32 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
     return '<div>' + const HtmlEscape().convert(q.prompt.trim()) + '</div>';
   }
 
+  Future<void> _confirmClose() async {
+    if (!mounted || _saving) return;
+    final shouldClose = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('الخروج من محرر السؤال'),
+        content: const Text(
+          'لم يتم حفظ السؤال بعد. هل تريد الخروج دون حفظ؟',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('العودة للمحرر'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('الخروج دون حفظ'),
+          ),
+        ],
+      ),
+    );
+    if (shouldClose == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   Future<void> _save() async {
     if (!_ready || _saving) return;
     setState(() => _saving = true);
@@ -341,6 +367,11 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'إغلاق المحرر',
+          onPressed: _saving ? null : _confirmClose,
+          icon: const Icon(Icons.close),
+        ),
         title: const Text('محرر السؤال — MExam'),
         actions: [
           IconButton(
@@ -678,6 +709,24 @@ td,th{border:1px solid #94a3b8;padding:6px;min-width:45px;position:relative;vert
 <div id="editor" contenteditable="true" spellcheck="true"><div><br></div></div>
 <script>
 const editor=document.getElementById('editor');
+function setMode(mode,button){
+  const isScience=mode==='science';
+  document.body.classList.toggle('science-mode',isScience);
+  document.body.classList.toggle('text-mode',!isScience);
+  document.querySelectorAll('#modeBar .mode').forEach(function(item){
+    item.classList.toggle('active',item===button);
+  });
+  if(isScience){
+    document.getElementById('scienceTools').classList.add('visible');
+    document.getElementById('toolbar').style.display='none';
+    document.getElementById('symbols').style.display='none';
+  }else{
+    document.getElementById('scienceTools').classList.remove('visible');
+    document.getElementById('toolbar').style.display='flex';
+    document.getElementById('symbols').style.display='flex';
+  }
+  saveSel();
+}
 function saveSel(){const s=getSelection();if(s.rangeCount)window._r=s.getRangeAt(0).cloneRange();}
 function restoreSel(){editor.focus();if(window._r){const s=getSelection();s.removeAllRanges();s.addRange(window._r);}}
 function cmd(c,v){restoreSel();document.execCommand(c,false,v||null);saveSel();}
