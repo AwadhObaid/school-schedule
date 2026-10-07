@@ -485,7 +485,8 @@ class ExamRichHtmlRenderer extends StatelessWidget {
       return width.clamp(1, 100).round();
     }
 
-    final index = cell.parent?.children.indexOf(cell) ?? 0;
+    final parent = cell.parentNode;
+    final index = parent is dom.Element ? parent.children.indexOf(cell) : 0;
     var flex = 0;
     for (var i = 0; i < span; i++) {
       flex += index + i < fallback.length ? fallback[index + i] : 1;
