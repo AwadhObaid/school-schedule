@@ -291,7 +291,7 @@ class _MexamQuestionEditorSheetState extends State<MexamQuestionEditorSheet> {
         answer: widget.initial?.answer ?? '',
         content: widget.initial?.content ?? const [],
         marks: double.tryParse(_marks.text.trim()) ?? 1,
-        pageBreakBefore: widget.initial?.pageBreakBefore ?? false,
+        pageBreakBefore: _pageBreakBefore,
       ),
     );
   }
