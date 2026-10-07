@@ -153,6 +153,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         ],
       ),
       body: Stack(
+        clipBehavior: Clip.none,
         children: [
           if (_loading)
             const Center(
@@ -230,8 +231,12 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
           IgnorePointer(
             child: Opacity(
               opacity: 0.01,
-              child: Align(
+              child: OverflowBox(
                 alignment: Alignment.topCenter,
+                minWidth: _OfficialPaperGeometry.a4Width,
+                maxWidth: _OfficialPaperGeometry.a4Width,
+                minHeight: _OfficialPaperGeometry.a4Height,
+                maxHeight: _OfficialPaperGeometry.a4Height,
                 child: RepaintBoundary(
                   key: _captureKey,
                   child: SizedBox(
