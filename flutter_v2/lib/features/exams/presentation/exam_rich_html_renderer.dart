@@ -398,36 +398,54 @@ class ExamRichHtmlRenderer extends StatelessWidget {
     final rows = table.querySelectorAll('tr');
     if (rows.isEmpty) return const SizedBox.shrink();
 
-    final tableWidth = _cssPercent(table.attributes['style'], 'width') ?? 100;
+    final tableWidth =
+        _cssPercent(table.attributes['style'], 'width') ?? 100;
+
+    var maxColumns = 0;
+    for (final row in rows) {
+      var count = 0;
+      for (final cell in row.children.where(
+        (e) => e.localName == 'td' || e.localName == 'th',
+      )) {
+        count += int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
+      }
+      if (count > maxColumns) maxColumns = count;
+    }
+    maxColumns = maxColumns.clamp(1, 12);
+
+    final columnFlex = List<int>.filled(maxColumns, 1);
     final firstRow = rows.first;
-    final columnFlex = <int>[];
+    var columnIndex = 0;
     for (final cell in firstRow.children.where(
       (e) => e.localName == 'td' || e.localName == 'th',
     )) {
-      final width = _cssPercent(cell.attributes['style'], 'width');
       final span = int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
+      final width = _cssPercent(cell.attributes['style'], 'width');
       final flex = width == null ? 1 : width.clamp(1, 100).round();
-      for (var i = 0; i < span; i++) {
-        columnFlex.add(flex);
+      for (var i = 0; i < span && columnIndex + i < maxColumns; i++) {
+        columnFlex[columnIndex + i] = flex;
       }
+      columnIndex += span;
     }
-    if (columnFlex.isEmpty) columnFlex.add(1);
 
-    final tableWidget = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+    final tableWidget = Table(
+      border: TableBorder.all(color: Colors.black, width: .6),
+      columnWidths: {
+        for (var i = 0; i < maxColumns; i++)
+          i: FlexColumnWidth(columnFlex[i].toDouble()),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         for (final row in rows)
-          Row(
-            textDirection: TextDirection.rtl,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          TableRow(
             children: [
-              for (final cell in row.children.where(
-                (e) => e.localName == 'td' || e.localName == 'th',
-              ))
-                Expanded(
-                  flex: _cellFlex(cell, columnFlex),
-                  child: _tableCell(cell),
+              for (var index = 0; index < maxColumns; index++)
+                _tableCell(
+                  index < row.children.length
+                      ? row.children.where(
+                          (e) => e.localName == 'td' || e.localName == 'th',
+                        ).elementAt(index)
+                      : null,
                 ),
             ],
           ),
@@ -447,20 +465,24 @@ class ExamRichHtmlRenderer extends StatelessWidget {
     );
   }
 
-  Widget _tableCell(dom.Element cell) {
+
+  Widget _tableCell(dom.Element? cell) {
+    if (cell == null) {
+      return const SizedBox.shrink();
+    }
+
     final style = cell.attributes['style'];
     final minHeight = _cssPx(style, 'height') ?? 0;
     final horizontal = _horizontalAlign(style);
     final vertical = _verticalAlign(style);
     final isHeader = cell.localName?.toLowerCase() == 'th';
 
-    final content = Container(
+    return Container(
       width: double.infinity,
       constraints: BoxConstraints(minHeight: minHeight),
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       decoration: BoxDecoration(
         color: isHeader ? const Color(0xFFF3F4F6) : Colors.white,
-        border: Border.all(color: Colors.black, width: .6),
       ),
       child: Align(
         alignment: _alignment(horizontal, vertical),
@@ -474,25 +496,9 @@ class ExamRichHtmlRenderer extends StatelessWidget {
         ),
       ),
     );
-
-    return content;
   }
 
-  int _cellFlex(dom.Element cell, List<int> fallback) {
-    final span = int.tryParse(cell.attributes['colspan'] ?? '1') ?? 1;
-    final width = _cssPercent(cell.attributes['style'], 'width');
-    if (width != null) {
-      return width.clamp(1, 100).round();
-    }
 
-    final parent = cell.parentNode;
-    final index = parent is dom.Element ? parent.children.indexOf(cell) : 0;
-    var flex = 0;
-    for (var i = 0; i < span; i++) {
-      flex += index + i < fallback.length ? fallback[index + i] : 1;
-    }
-    return flex.clamp(1, 1000).toInt();
-  }
 
   Alignment _alignment(String horizontal, String vertical) {
     final x = switch (horizontal) {
