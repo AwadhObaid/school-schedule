@@ -1130,7 +1130,7 @@ class _QuestionOnPaper extends StatelessWidget {
               children: [
                 if (showMarks)
                   Text(
-                    '(\${_marks(question.marks)})',
+                    '(${_marks(question.marks)})',
                     style: const TextStyle(color: Colors.black, fontSize: 9),
                   ),
                 const SizedBox(width: 5),
