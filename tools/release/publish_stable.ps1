@@ -154,6 +154,14 @@ try {
     flutter pub get
     if ($LASTEXITCODE -ne 0) { Fail 'flutter pub get failed.' }
 
+    Step 'Regenerating official launcher icon'
+    dart run flutter_launcher_icons
+    if ($LASTEXITCODE -ne 0) { Fail 'flutter_launcher_icons failed.' }
+
+    Step 'Regenerating official Android splash screen'
+    dart run flutter_native_splash:create
+    if ($LASTEXITCODE -ne 0) { Fail 'flutter_native_splash:create failed.' }
+
     flutter analyze --no-fatal-infos --no-fatal-warnings
     if ($LASTEXITCODE -ne 0) { Fail 'flutter analyze failed.' }
 
