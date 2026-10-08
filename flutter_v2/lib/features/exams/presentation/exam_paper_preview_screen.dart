@@ -76,7 +76,10 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         _pages = _paginateByMeasuredHeights(
           widget.exam.questions,
           measuredHeights,
-          availableHeight,
+          // Keep a small safety reserve for borders, footer spacing and
+          // rasterization differences between the measurement and capture
+          // trees.
+          availableHeight - 14.0,
         );
       }
 
@@ -403,9 +406,10 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       return const <List<ExamQuestion>>[<ExamQuestion>[]];
     }
 
-    // The page is a fixed A4 canvas. We use a vertical footprint estimate
-    // instead of the old fixed "5 questions per page" rule.
-    const pageCapacity = 24.0;
+    // Conservative fallback used only before live measurement is available.
+    // The measured paginator is preferred; this fallback is deliberately
+    // tighter so table-heavy questions never reach the footer. 
+    const pageCapacity = 17.0;
     final pages = <List<ExamQuestion>>[];
     var current = <ExamQuestion>[];
     var used = 0.0;
@@ -510,10 +514,10 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     var units = 2.7 + textLines * 0.9;
 
     final html = question.htmlContent;
-    final tableRows = RegExp(r'<tr\\b', caseSensitive: false)
+    final tableRows = RegExp(r'<tr\b', caseSensitive: false)
         .allMatches(html)
         .length;
-    final tableCells = RegExp(r'<(?:td|th)\\b', caseSensitive: false)
+    final tableCells = RegExp(r'<(?:td|th)\b', caseSensitive: false)
         .allMatches(html)
         .length;
     if (tableRows > 0) {
@@ -525,7 +529,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       }
     }
 
-    final htmlBlocks = RegExp(r'<(?:div|p|br)\\b', caseSensitive: false)
+    final htmlBlocks = RegExp(r'<(?:div|p|br)\b', caseSensitive: false)
         .allMatches(html)
         .length;
     if (htmlBlocks > 1) {
