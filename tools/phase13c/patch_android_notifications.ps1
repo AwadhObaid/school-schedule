@@ -83,6 +83,7 @@ function Ensure-Receiver(
     $Application.AppendChild($receiver) | Out-Null
 }
 
+Ensure-Permission 'android.permission.INTERNET'
 Ensure-Permission 'android.permission.POST_NOTIFICATIONS'
 Ensure-Permission 'android.permission.VIBRATE'
 Ensure-Permission 'android.permission.RECEIVE_BOOT_COMPLETED'
