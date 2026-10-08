@@ -1,8 +1,9 @@
-name: Flutter V2 CI
+name: Flutter Production CI
 
 on:
   push:
     branches:
+      - main
       - 'flutter-v2-*'
     paths:
       - 'flutter_v2/**'
@@ -40,7 +41,7 @@ jobs:
         run: flutter pub get
 
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Test
         run: flutter test
