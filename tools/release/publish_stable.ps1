@@ -143,6 +143,14 @@ try {
     flutter clean
     if ($LASTEXITCODE -ne 0) { Fail 'flutter clean failed.' }
 
+    $manifestPath = Join-Path $FlutterRoot 'android\app\src\main\AndroidManifest.xml'
+    $notificationPatch = Join-Path $ProjectRoot 'tools\phase13c\patch_android_notifications.ps1'
+    if (-not (Test-Path $manifestPath)) { Fail "AndroidManifest.xml not found: $manifestPath" }
+    if (-not (Test-Path $notificationPatch)) { Fail "Notification Android patch script not found: $notificationPatch" }
+    Step 'Applying release Android permissions and notification receivers'
+    & $notificationPatch -ManifestPath $manifestPath
+    if ($LASTEXITCODE -ne 0) { Fail 'Android notification manifest patch failed.' }
+
     flutter pub get
     if ($LASTEXITCODE -ne 0) { Fail 'flutter pub get failed.' }
 
