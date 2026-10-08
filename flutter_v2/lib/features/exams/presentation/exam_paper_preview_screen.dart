@@ -254,21 +254,24 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
           // Offstage lays out the questions at the exact printable width
           // without painting them, so their real heights can drive pagination.
           Offstage(
-            child: SizedBox(
-              width: _OfficialPaperGeometry.contentWidth - 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < widget.exam.questions.length; i++)
-                    KeyedSubtree(
-                      key: _questionMeasurementKeys[i],
-                      child: _QuestionOnPaper(
-                        number: i + 1,
-                        question: widget.exam.questions[i],
-                        showMarks: widget.exam.template.showQuestionMarks,
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: SizedBox(
+                width: _OfficialPaperGeometry.contentWidth - 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < widget.exam.questions.length; i++)
+                      KeyedSubtree(
+                        key: _questionMeasurementKeys[i],
+                        child: _QuestionOnPaper(
+                          number: i + 1,
+                          question: widget.exam.questions[i],
+                          showMarks: widget.exam.template.showQuestionMarks,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
