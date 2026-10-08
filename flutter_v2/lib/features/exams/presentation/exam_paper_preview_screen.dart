@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:pdf/pdf.dart';
@@ -29,7 +31,8 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 }
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
-  late List<List<ExamQuestion>> _pages;
+  late List<_PaperQuestionBlock> _paperQuestionBlocks;
+  late List<List<_PaperQuestionBlock>> _pages;
   final GlobalKey _captureKey = GlobalKey();
   final GlobalKey _pageLayoutProbeKey = GlobalKey();
   final List<GlobalKey> _questionMeasurementKeys = <GlobalKey>[];
@@ -46,10 +49,11 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   @override
   void initState() {
     super.initState();
-    _pages = _paginate(widget.exam.questions);
+    _paperQuestionBlocks = _expandPaperQuestionBlocks(widget.exam.questions);
+    _pages = _paginate(_paperQuestionBlocks);
     _questionMeasurementKeys.addAll(
       List<GlobalKey>.generate(
-        widget.exam.questions.length,
+        _paperQuestionBlocks.length,
         (_) => GlobalKey(),
       ),
     );
@@ -71,10 +75,10 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       // content width before deciding where page breaks belong.
       final measuredHeights = _measureQuestionHeights();
       final availableHeight = _measureQuestionAreaHeight();
-      if (measuredHeights.length == widget.exam.questions.length &&
+      if (measuredHeights.length == _paperQuestionBlocks.length &&
           availableHeight > 0) {
         _pages = _paginateByMeasuredHeights(
-          widget.exam.questions,
+          _paperQuestionBlocks,
           measuredHeights,
           // Keep a small safety reserve for borders, footer spacing and
           // rasterization differences between the measurement and capture
@@ -264,13 +268,17 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (var i = 0; i < widget.exam.questions.length; i++)
+                    for (var i = 0; i < _paperQuestionBlocks.length; i++)
                       KeyedSubtree(
                         key: _questionMeasurementKeys[i],
                         child: _QuestionOnPaper(
-                          number: i + 1,
-                          question: widget.exam.questions[i],
+                          number: _paperQuestionBlocks[i].number,
+                          question: _paperQuestionBlocks[i].question,
                           showMarks: widget.exam.template.showQuestionMarks,
+                          htmlContentOverride:
+                              _paperQuestionBlocks[i].htmlContent,
+                          showHeader: _paperQuestionBlocks[i].showHeader,
+                          showExtras: _paperQuestionBlocks[i].showExtras,
                         ),
                       ),
                   ],
@@ -287,7 +295,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 exam: widget.exam,
                 pageNumber: 1,
                 totalPages: 1,
-                questions: const <ExamQuestion>[],
+                questions: const <_PaperQuestionBlock>[],
                 questionAreaKey: _pageLayoutProbeKey,
               ),
             ),
@@ -399,40 +407,34 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     return pdf.save();
   }
 
-  static List<List<ExamQuestion>> _paginate(
-    List<ExamQuestion> questions,
+  static List<List<_PaperQuestionBlock>> _paginate(
+    List<_PaperQuestionBlock> blocks,
   ) {
-    if (questions.isEmpty) {
-      return const <List<ExamQuestion>>[<ExamQuestion>[]];
+    if (blocks.isEmpty) {
+      return const <List<_PaperQuestionBlock>>[<_PaperQuestionBlock>[]];
     }
 
-    // Conservative fallback used only before live measurement is available.
-    // The measured paginator is preferred; this fallback is deliberately
-    // tighter so table-heavy questions never reach the footer. 
     const pageCapacity = 17.0;
-    final pages = <List<ExamQuestion>>[];
-    var current = <ExamQuestion>[];
+    final pages = <List<_PaperQuestionBlock>>[];
+    var current = <_PaperQuestionBlock>[];
     var used = 0.0;
 
-    for (final question in questions) {
-      final footprint = _questionFootprint(question);
+    for (final block in blocks) {
+      final footprint = _questionFootprint(block);
 
-      // A manual page break always wins over automatic pagination.
-      if (question.pageBreakBefore && current.isNotEmpty) {
+      if (block.pageBreakBefore && current.isNotEmpty) {
         pages.add(List.unmodifiable(current));
-        current = <ExamQuestion>[];
+        current = <_PaperQuestionBlock>[];
         used = 0;
       }
 
-      // Questions are atomic paper blocks: a question, including its tables,
-      // options and answer area, is never split between two A4 pages.
       if (current.isNotEmpty && used + footprint > pageCapacity) {
         pages.add(List.unmodifiable(current));
-        current = <ExamQuestion>[];
+        current = <_PaperQuestionBlock>[];
         used = 0;
       }
 
-      current.add(question);
+      current.add(block);
       used += footprint;
     }
 
@@ -441,6 +443,74 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     }
 
     return pages;
+  }
+
+  static List<_PaperQuestionBlock> _expandPaperQuestionBlocks(
+    List<ExamQuestion> questions,
+  ) {
+    final blocks = <_PaperQuestionBlock>[];
+
+    for (var questionIndex = 0;
+        questionIndex < questions.length;
+        questionIndex++) {
+      final question = questions[questionIndex];
+      final html = question.htmlContent.trim();
+
+      if (html.isEmpty) {
+        blocks.add(
+          _PaperQuestionBlock(
+            question: question,
+            number: questionIndex + 1,
+            htmlContent: null,
+            showHeader: true,
+            showExtras: true,
+            pageBreakBefore: question.pageBreakBefore,
+          ),
+        );
+        continue;
+      }
+
+      final fragment = html_parser.parseFragment(html);
+      final nodes = fragment.nodes.where((node) {
+        if (node is dom.Text) return node.data.trim().isNotEmpty;
+        return node is dom.Element && node.outerHtml.trim().isNotEmpty;
+      }).toList();
+
+      if (nodes.length <= 1) {
+        blocks.add(
+          _PaperQuestionBlock(
+            question: question,
+            number: questionIndex + 1,
+            htmlContent: html,
+            showHeader: true,
+            showExtras: true,
+            pageBreakBefore: question.pageBreakBefore,
+          ),
+        );
+        continue;
+      }
+
+      for (var nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) {
+        final node = nodes[nodeIndex];
+        final serialized =
+            node is dom.Element ? node.outerHtml : node.toString();
+        if (serialized.trim().isEmpty) continue;
+
+        blocks.add(
+          _PaperQuestionBlock(
+            question: question,
+            number: questionIndex + 1,
+            htmlContent: serialized,
+            showHeader: nodeIndex == 0,
+            showExtras: nodeIndex == nodes.length - 1,
+            pageBreakBefore:
+                nodeIndex == 0 && question.pageBreakBefore,
+          ),
+        );
+      }
+    }
+
+    return blocks;
   }
 
   List<double> _measureQuestionHeights() {
@@ -466,38 +536,36 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     return 0;
   }
 
-  static List<List<ExamQuestion>> _paginateByMeasuredHeights(
-    List<ExamQuestion> questions,
+  static List<List<_PaperQuestionBlock>> _paginateByMeasuredHeights(
+    List<_PaperQuestionBlock> blocks,
     List<double> heights,
     double availableHeight,
   ) {
-    if (questions.isEmpty) {
-      return const <List<ExamQuestion>>[<ExamQuestion>[]];
+    if (blocks.isEmpty) {
+      return const <List<_PaperQuestionBlock>>[<_PaperQuestionBlock>[]];
     }
 
-    final pages = <List<ExamQuestion>>[];
-    var current = <ExamQuestion>[];
+    final pages = <List<_PaperQuestionBlock>>[];
+    var current = <_PaperQuestionBlock>[];
     var used = 0.0;
 
-    for (var i = 0; i < questions.length; i++) {
-      final question = questions[i];
+    for (var i = 0; i < blocks.length; i++) {
+      final block = blocks[i];
       final height = heights[i];
 
-      if (question.pageBreakBefore && current.isNotEmpty) {
+      if (block.pageBreakBefore && current.isNotEmpty) {
         pages.add(List.unmodifiable(current));
-        current = <ExamQuestion>[];
+        current = <_PaperQuestionBlock>[];
         used = 0;
       }
 
-      // A question is kept as an atomic paper block. If it does not fit in
-      // the remaining space, start a new A4 page before it.
       if (current.isNotEmpty && used + height > availableHeight) {
         pages.add(List.unmodifiable(current));
-        current = <ExamQuestion>[];
+        current = <_PaperQuestionBlock>[];
         used = 0;
       }
 
-      current.add(question);
+      current.add(block);
       used += height;
     }
 
@@ -508,12 +576,13 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     return pages;
   }
 
-  static double _questionFootprint(ExamQuestion question) {
+  static double _questionFootprint(_PaperQuestionBlock block) {
+    final question = block.question;
     final textLength = question.prompt.trim().length;
     final textLines = (textLength / 62).ceil().clamp(1, 8);
     var units = 2.7 + textLines * 0.9;
 
-    final html = question.htmlContent;
+    final html = block.htmlContent ?? question.htmlContent;
     final tableRows = RegExp(r'<tr\b', caseSensitive: false)
         .allMatches(html)
         .length;
@@ -601,6 +670,24 @@ abstract final class _OfficialPaperTypography {
   static const double footer = 8.5;
 }
 
+class _PaperQuestionBlock {
+  const _PaperQuestionBlock({
+    required this.question,
+    required this.number,
+    required this.htmlContent,
+    required this.showHeader,
+    required this.showExtras,
+    required this.pageBreakBefore,
+  });
+
+  final ExamQuestion question;
+  final int number;
+  final String? htmlContent;
+  final bool showHeader;
+  final bool showExtras;
+  final bool pageBreakBefore;
+}
+
 class _PaperPage extends StatelessWidget {
   const _PaperPage({
     required this.exam,
@@ -613,7 +700,7 @@ class _PaperPage extends StatelessWidget {
   final Exam exam;
   final int pageNumber;
   final int totalPages;
-  final List<ExamQuestion> questions;
+  final List<_PaperQuestionBlock> questions;
   final GlobalKey? questionAreaKey;
 
   @override
@@ -655,8 +742,7 @@ class _PaperPage extends StatelessWidget {
                     : _QuestionsArea(
                         questions: questions,
                         showMarks: template.showQuestionMarks,
-                        startNumber: exam.questions.indexOf(questions.first) + 1,
-                      ),
+                        ),
               ),
             ),
             const SizedBox(height: 8),
@@ -958,13 +1044,11 @@ class _QuestionsArea extends StatelessWidget {
   const _QuestionsArea({
     required this.questions,
     required this.showMarks,
-    required this.startNumber,
     super.key,
   });
 
-  final List<ExamQuestion> questions;
+  final List<_PaperQuestionBlock> questions;
   final bool showMarks;
-  final int startNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -974,11 +1058,14 @@ class _QuestionsArea extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < questions.length; i++)
+          for (final block in questions)
             _QuestionOnPaper(
-              number: startNumber + i,
-              question: questions[i],
+              number: block.number,
+              question: block.question,
               showMarks: showMarks,
+              htmlContentOverride: block.htmlContent,
+              showHeader: block.showHeader,
+              showExtras: block.showExtras,
             ),
         ],
       ),
@@ -1016,50 +1103,56 @@ class _QuestionOnPaper extends StatelessWidget {
     required this.number,
     required this.question,
     required this.showMarks,
+    this.htmlContentOverride,
+    this.showHeader = true,
+    this.showExtras = true,
   });
 
   final int number;
   final ExamQuestion question;
   final bool showMarks;
+  final String? htmlContentOverride;
+  final bool showHeader;
+  final bool showExtras;
 
   @override
   Widget build(BuildContext context) {
+    final renderedHtml = htmlContentOverride ?? question.htmlContent;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (showMarks)
-                Text(
-                  '(${_marks(question.marks)})',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 9,
+          if (showHeader)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showMarks)
+                  Text(
+                    '(\${_marks(question.marks)})',
+                    style: const TextStyle(color: Colors.black, fontSize: 9),
+                  ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'س$number/',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  'س$number/',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          if (question.htmlContent.trim().isNotEmpty)
+              ],
+            ),
+          if (showHeader) const SizedBox(height: 3),
+          if (renderedHtml.trim().isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: ExamRichHtmlRenderer(
-                html: question.htmlContent,
+                html: renderedHtml,
                 fontSize: _OfficialPaperTypography.body,
               ),
             )
@@ -1089,31 +1182,25 @@ class _QuestionOnPaper extends StatelessWidget {
                         ),
                       ),
               ),
-          if (question.type == ExamQuestionType.multipleChoice &&
+          if (showExtras &&
+              question.type == ExamQuestionType.multipleChoice &&
               question.options.isNotEmpty)
-            _ChoiceOptions(
-              options: question.options,
-            ),
-          if (question.type == ExamQuestionType.trueFalse)
+            _ChoiceOptions(options: question.options),
+          if (showExtras && question.type == ExamQuestionType.trueFalse)
             const Padding(
               padding: EdgeInsets.only(top: 2),
               child: Text(
                 '☐ صح     ☐ خطأ',
                 textAlign: TextAlign.right,
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 10,
-                ),
+                style: TextStyle(color: Colors.black, fontSize: 10),
               ),
             ),
-          if (question.type == ExamQuestionType.shortAnswer ||
-              question.type == ExamQuestionType.essay)
+          if (showExtras &&
+              (question.type == ExamQuestionType.shortAnswer ||
+                  question.type == ExamQuestionType.essay))
             const Padding(
               padding: EdgeInsets.only(top: 5),
-              child: Divider(
-                color: Colors.black38,
-                height: 10,
-              ),
+              child: Divider(color: Colors.black38, height: 10),
             ),
         ],
       ),
