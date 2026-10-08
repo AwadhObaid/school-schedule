@@ -471,46 +471,71 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       }
 
       final fragment = html_parser.parseFragment(html);
-      final nodes = fragment.nodes.where((node) {
-        if (node is dom.Text) return node.data.trim().isNotEmpty;
-        return node is dom.Element && node.outerHtml.trim().isNotEmpty;
-      }).toList();
+      final fragments = <String>[];
+      _collectPaperHtmlFragments(fragment.nodes, fragments);
 
-      if (nodes.length <= 1) {
-        blocks.add(
-          _PaperQuestionBlock(
-            question: question,
-            number: questionIndex + 1,
-            htmlContent: html,
-            showHeader: true,
-            showExtras: true,
-            pageBreakBefore: question.pageBreakBefore,
-          ),
-        );
-        continue;
+      if (fragments.isEmpty) {
+        fragments.add(html);
       }
 
-      for (var nodeIndex = 0; nodeIndex < nodes.length; nodeIndex++) {
-        final node = nodes[nodeIndex];
-        final serialized =
-            node is dom.Element ? node.outerHtml : node.toString();
-        if (serialized.trim().isEmpty) continue;
-
+      for (var fragmentIndex = 0;
+          fragmentIndex < fragments.length;
+          fragmentIndex++) {
         blocks.add(
           _PaperQuestionBlock(
             question: question,
             number: questionIndex + 1,
-            htmlContent: serialized,
-            showHeader: nodeIndex == 0,
-            showExtras: nodeIndex == nodes.length - 1,
+            htmlContent: fragments[fragmentIndex],
+            showHeader: fragmentIndex == 0,
+            showExtras: fragmentIndex == fragments.length - 1,
             pageBreakBefore:
-                nodeIndex == 0 && question.pageBreakBefore,
+                fragmentIndex == 0 && question.pageBreakBefore,
           ),
         );
       }
     }
 
     return blocks;
+  }
+
+  static void _collectPaperHtmlFragments(
+    List<dom.Node> nodes,
+    List<String> output,
+  ) {
+    for (final node in nodes) {
+      if (node is dom.Text) {
+        final text = node.data.trim();
+        if (text.isNotEmpty) {
+          output.add(text);
+        }
+        continue;
+      }
+
+      if (node is! dom.Element) continue;
+
+      final tag = node.localName?.toLowerCase() ?? '';
+
+      // A table is an atomic paper block. It must be allowed to move as a
+      // whole unit to the next A4 page when the remaining space is small.
+      if (tag == 'table') {
+        output.add(node.outerHtml);
+        continue;
+      }
+
+      // Editor content is frequently wrapped in div/section containers.
+      // Flatten those containers so that tables nested inside them are not
+      // accidentally kept together with the entire question.
+      final containsTable = node.querySelector('table') != null;
+      if (containsTable) {
+        _collectPaperHtmlFragments(node.nodes, output);
+        continue;
+      }
+
+      final html = node.outerHtml.trim();
+      if (html.isNotEmpty) {
+        output.add(html);
+      }
+    }
   }
 
   List<double> _measureQuestionHeights() {
