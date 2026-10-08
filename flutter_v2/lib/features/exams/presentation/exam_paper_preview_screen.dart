@@ -29,8 +29,10 @@ class ExamPaperPreviewScreen extends StatefulWidget {
 }
 
 class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
-  late final List<List<ExamQuestion>> _pages;
+  late List<List<ExamQuestion>> _pages;
   final GlobalKey _captureKey = GlobalKey();
+  final GlobalKey _pageLayoutProbeKey = GlobalKey();
+  final List<GlobalKey> _questionMeasurementKeys = <GlobalKey>[];
   int _capturePageIndex = 0;
   final TransformationController _transformController =
       TransformationController();
@@ -45,6 +47,12 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   void initState() {
     super.initState();
     _pages = _paginate(widget.exam.questions);
+    _questionMeasurementKeys.addAll(
+      List<GlobalKey>.generate(
+        widget.exam.questions.length,
+        (_) => GlobalKey(),
+      ),
+    );
     _loadPreview();
   }
 
@@ -58,6 +66,24 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     try {
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
+
+      // Measure the real rendered height of every question at the exact A4
+      // content width before deciding where page breaks belong.
+      final measuredHeights = _measureQuestionHeights();
+      final availableHeight = _measureQuestionAreaHeight();
+      if (measuredHeights.length == widget.exam.questions.length &&
+          availableHeight > 0) {
+        _pages = _paginateByMeasuredHeights(
+          widget.exam.questions,
+          measuredHeights,
+          availableHeight,
+        );
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+      await WidgetsBinding.instance.endOfFrame;
       final bytes = await _buildPdf(context, PdfPageFormat.a4);
       final images = <Uint8List>[];
 
@@ -225,6 +251,41 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
                 ],
               ),
             ),
+          // Offstage lays out the questions at the exact printable width
+          // without painting them, so their real heights can drive pagination.
+          Offstage(
+            child: SizedBox(
+              width: _OfficialPaperGeometry.contentWidth - 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < widget.exam.questions.length; i++)
+                    KeyedSubtree(
+                      key: _questionMeasurementKeys[i],
+                      child: _QuestionOnPaper(
+                        number: i + 1,
+                        question: widget.exam.questions[i],
+                        showMarks: widget.exam.template.showQuestionMarks,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          // Probe the real Expanded question area on an empty A4 page.
+          Offstage(
+            child: SizedBox(
+              width: _OfficialPaperGeometry.a4Width,
+              height: _OfficialPaperGeometry.a4Height,
+              child: _PaperPage(
+                exam: widget.exam,
+                pageNumber: 1,
+                totalPages: 1,
+                questions: const <ExamQuestion>[],
+                questionAreaKey: _pageLayoutProbeKey,
+              ),
+            ),
+          ),
           // Keep exactly one live A4 render target in the normal Flutter
           // tree. Capturing many boundaries at once made table-heavy pages
           // vulnerable to clipping/paint-order issues.
@@ -375,6 +436,71 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     return pages;
   }
 
+  List<double> _measureQuestionHeights() {
+    final heights = <double>[];
+
+    for (final key in _questionMeasurementKeys) {
+      final renderObject = key.currentContext?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) {
+        return const <double>[];
+      }
+      heights.add(renderObject.size.height);
+    }
+
+    return heights;
+  }
+
+  double _measureQuestionAreaHeight() {
+    final renderObject = _pageLayoutProbeKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      // _QuestionsArea itself has 6px vertical padding at both ends.
+      return renderObject.size.height - 12.0;
+    }
+    return 0;
+  }
+
+  static List<List<ExamQuestion>> _paginateByMeasuredHeights(
+    List<ExamQuestion> questions,
+    List<double> heights,
+    double availableHeight,
+  ) {
+    if (questions.isEmpty) {
+      return const <List<ExamQuestion>>[<ExamQuestion>[]];
+    }
+
+    final pages = <List<ExamQuestion>>[];
+    var current = <ExamQuestion>[];
+    var used = 0.0;
+
+    for (var i = 0; i < questions.length; i++) {
+      final question = questions[i];
+      final height = heights[i];
+
+      if (question.pageBreakBefore && current.isNotEmpty) {
+        pages.add(List.unmodifiable(current));
+        current = <ExamQuestion>[];
+        used = 0;
+      }
+
+      // A question is kept as an atomic paper block. If it does not fit in
+      // the remaining space, start a new A4 page before it.
+      if (current.isNotEmpty && used + height > availableHeight) {
+        pages.add(List.unmodifiable(current));
+        current = <ExamQuestion>[];
+        used = 0;
+      }
+
+      current.add(question);
+      used += height;
+    }
+
+    if (current.isNotEmpty) {
+      pages.add(List.unmodifiable(current));
+    }
+
+    return pages;
+  }
+
   static double _questionFootprint(ExamQuestion question) {
     final textLength = question.prompt.trim().length;
     final textLines = (textLength / 62).ceil().clamp(1, 8);
@@ -474,12 +600,14 @@ class _PaperPage extends StatelessWidget {
     required this.pageNumber,
     required this.totalPages,
     required this.questions,
+    this.questionAreaKey,
   });
 
   final Exam exam;
   final int pageNumber;
   final int totalPages;
   final List<ExamQuestion> questions;
+  final GlobalKey? questionAreaKey;
 
   @override
   Widget build(BuildContext context) {
@@ -513,6 +641,10 @@ class _PaperPage extends StatelessWidget {
                   : _QuestionsArea(
                       questions: questions,
                       showMarks: template.showQuestionMarks,
+                      startNumber: questions.isEmpty
+                          ? 1
+                          : exam.questions.indexOf(questions.first) + 1,
+                      key: questionAreaKey,
                     ),
             ),
             const SizedBox(height: 8),
@@ -814,10 +946,13 @@ class _QuestionsArea extends StatelessWidget {
   const _QuestionsArea({
     required this.questions,
     required this.showMarks,
+    required this.startNumber,
+    super.key,
   });
 
   final List<ExamQuestion> questions;
   final bool showMarks;
+  final int startNumber;
 
   @override
   Widget build(BuildContext context) {
@@ -829,7 +964,7 @@ class _QuestionsArea extends StatelessWidget {
         children: [
           for (var i = 0; i < questions.length; i++)
             _QuestionOnPaper(
-              number: i + 1,
+              number: startNumber + i,
               question: questions[i],
               showMarks: showMarks,
             ),
