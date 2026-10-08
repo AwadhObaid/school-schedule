@@ -39,9 +39,9 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   int _capturePageIndex = 0;
   final TransformationController _transformController =
       TransformationController();
+  final ScrollController _pageScrollController = ScrollController();
 
   double _zoom = 1.0;
-  int _currentPage = 0;
   bool _loading = true;
   Uint8List? _pdfBytes;
   List<Uint8List> _pageImages = const <Uint8List>[];
@@ -63,6 +63,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
   @override
   void dispose() {
     _transformController.dispose();
+    _pageScrollController.dispose();
     super.dispose();
   }
 
@@ -123,7 +124,13 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
 
   void _zoomOut() => _setZoom(_zoom - 0.25);
 
-  void _resetZoom() => _setZoom(1.0);
+  void _resetZoom() {
+    _transformController.value = Matrix4.identity();
+    setState(() => _zoom = 1.0);
+    if (_pageScrollController.hasClients) {
+      _pageScrollController.jumpTo(_pageScrollController.offset);
+    }
+  }
 
   Future<void> _print() async {
     final bytes = _pdfBytes;
@@ -204,58 +211,58 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
           else
             Container(
               color: const Color(0xFFE5E7EB),
-              child: Stack(
-                children: [
-                  PageView.builder(
-                    itemCount: _pageImages.length,
-                    onPageChanged: (index) => setState(() => _currentPage = index),
-                    itemBuilder: (context, index) => InteractiveViewer(
-                      transformationController: _transformController,
-                      minScale: 0.5,
-                      maxScale: 3.0,
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      boundaryMargin: const EdgeInsets.all(120),
-                      onInteractionUpdate: (_) {
-                        final scale = _transformController.value.getMaxScaleOnAxis();
-                        if ((scale - _zoom).abs() > 0.01 && mounted) {
-                          setState(() => _zoom = scale.clamp(0.5, 3.0).toDouble());
-                        }
-                      },
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Image.memory(
-                            _pageImages[index],
-                            fit: BoxFit.contain,
-                            filterQuality: FilterQuality.high,
-                          ),
-                        ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final pageWidth = (constraints.maxWidth - 36).clamp(280.0, 820.0);
+                  return Scrollbar(
+                    controller: _pageScrollController,
+                    thumbVisibility: _pageImages.length > 1,
+                    child: ListView.separated(
+                      controller: _pageScrollController,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 18,
                       ),
-                    ),
-                  ),
-                  if (_pageImages.length > 1)
-                    Positioned(
-                      bottom: 16,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                            child: Text(
-                              'الصفحة ' + (_currentPage + 1).toString() + ' من ' + _pageImages.length.toString(),
-                              style: const TextStyle(color: Colors.white),
+                      itemCount: _pageImages.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 18),
+                      itemBuilder: (context, index) {
+                        return Center(
+                          child: SizedBox(
+                            width: pageWidth,
+                            child: Material(
+                              color: Colors.white,
+                              elevation: 2,
+                              child: InteractiveViewer(
+                                transformationController: _transformController,
+                                minScale: 0.5,
+                                maxScale: 3.0,
+                                panEnabled: _zoom > 1.0,
+                                scaleEnabled: true,
+                                boundaryMargin: const EdgeInsets.all(120),
+                                onInteractionUpdate: (_) {
+                                  final scale =
+                                      _transformController.value.getMaxScaleOnAxis();
+                                  if ((scale - _zoom).abs() > 0.01 && mounted) {
+                                    setState(
+                                      () => _zoom =
+                                          scale.clamp(0.5, 3.0).toDouble(),
+                                    );
+                                  }
+                                },
+                                child: Image.memory(
+                                  _pageImages[index],
+                                  width: pageWidth,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                ],
+                  );
+                },
               ),
             ),
           // Offstage lays out the questions at the exact printable width
