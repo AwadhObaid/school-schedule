@@ -643,16 +643,21 @@ class _PaperPage extends StatelessWidget {
             _InstructionBar(text: template.instruction),
             const SizedBox(height: 10),
             Expanded(
-              child: questions.isEmpty
-                  ? _EmptyQuestionArea()
-                  : _QuestionsArea(
-                      questions: questions,
-                      showMarks: template.showQuestionMarks,
-                      startNumber: questions.isEmpty
-                          ? 1
-                          : exam.questions.indexOf(questions.first) + 1,
-                      key: questionAreaKey,
-                    ),
+              child: Container(
+                // Measure the actual height allocated to the question area.
+                // This wrapper must own the probe key even when the page has
+                // no questions; otherwise the empty-page probe has no
+                // RenderBox and pagination falls back to the unsafe estimate.
+                key: questionAreaKey,
+                width: double.infinity,
+                child: questions.isEmpty
+                    ? _EmptyQuestionArea()
+                    : _QuestionsArea(
+                        questions: questions,
+                        showMarks: template.showQuestionMarks,
+                        startNumber: exam.questions.indexOf(questions.first) + 1,
+                      ),
+              ),
             ),
             const SizedBox(height: 8),
             _PaperFooter(
