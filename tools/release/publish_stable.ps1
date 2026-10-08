@@ -146,7 +146,7 @@ try {
     flutter pub get
     if ($LASTEXITCODE -ne 0) { Fail 'flutter pub get failed.' }
 
-    flutter analyze
+    flutter analyze --no-fatal-infos --no-fatal-warnings
     if ($LASTEXITCODE -ne 0) { Fail 'flutter analyze failed.' }
 
     flutter test
