@@ -28,7 +28,7 @@ class AppUpdateService {
           'X-GitHub-Api-Version': '2022-11-28',
           'User-Agent': 'SchoolSchedule-Flutter-V2',
         },
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 404) {
         return const AppUpdateCheckResult(
