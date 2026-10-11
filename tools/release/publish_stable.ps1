@@ -257,7 +257,7 @@ gh release view $version.tag --repo $Repo *> $null
 if ($LASTEXITCODE -eq 0) { Fail "Release $($version.tag) already exists. Refusing to overwrite it." }
 
 Step 'Publishing GitHub Release'
-gh release create $version.tag $stableApk $shaFile --repo $Repo --title "التوقيت المدرسي $($version.name)" --notes-file $ReleaseNotesFile --latest
+gh release create $version.tag $stableApk $shaFile --repo $Repo --title "School Schedule $($version.name)" --notes-file $ReleaseNotesFile --latest
 if ($LASTEXITCODE -ne 0) { Fail 'GitHub Release creation failed.' }
 
 Step 'Verifying published APK asset'
