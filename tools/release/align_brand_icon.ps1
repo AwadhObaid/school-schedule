@@ -9,7 +9,9 @@ if (-not (Test-Path -LiteralPath $ImagePath)) {
 }
 
 Add-Type -AssemblyName System.Drawing
-$bitmap = [System.Drawing.Bitmap]::new($ImagePath)
+$fullPath = (Resolve-Path -LiteralPath $ImagePath).Path
+$tempPath = "$fullPath.brand.tmp.png"
+$bitmap = [System.Drawing.Bitmap]::new($fullPath)
 try {
     $brandGreen = [System.Drawing.Color]::FromArgb(47, 125, 90)
     $changed = 0
@@ -27,9 +29,16 @@ try {
     if ($changed -eq 0) {
         throw 'No blue-dominant pixels were found; refusing to silently alter an unexpected icon asset.'
     }
-    $bitmap.Save($ImagePath, [System.Drawing.Imaging.ImageFormat]::Png)
-    Write-Host "Brand identity aligned: converted $changed blue pixels to #2F7D5A in $ImagePath" -ForegroundColor Green
+    $bitmap.Save($tempPath, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 finally {
     $bitmap.Dispose()
+}
+
+try {
+    Move-Item -LiteralPath $tempPath -Destination $fullPath -Force
+    Write-Host "Brand identity aligned: converted $changed blue pixels to #2F7D5A in $fullPath" -ForegroundColor Green
+}
+finally {
+    if (Test-Path -LiteralPath $tempPath) { Remove-Item -LiteralPath $tempPath -Force }
 }
