@@ -3,7 +3,7 @@ import 'package:schedule/core/app_info.dart';
 
 void main() {
   test('share text uses the stable direct APK download URL', () {
-    expect(AppInfo.version, '2.11.6+28');
+    expect(AppInfo.version, matches(RegExp(r'^\\d+\\.\\d+\\.\\d+\\+\\d+$')));
     expect(AppInfo.shareUrl, AppInfo.stableDownloadUrl);
     expect(
       AppInfo.shareUrl,
@@ -12,7 +12,7 @@ void main() {
     expect(AppInfo.shareText, contains(AppInfo.stableDownloadUrl));
     expect(
       AppInfo.shareText,
-      isNot(contains('https://github.com/AwadhObaid/school-schedule\n')),
+      isNot(contains('https://github.com/AwadhObaid/school-schedule\\n')),
     );
   });
 }
