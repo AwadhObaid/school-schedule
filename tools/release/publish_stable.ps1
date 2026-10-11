@@ -154,6 +154,13 @@ try {
     flutter pub get
     if ($LASTEXITCODE -ne 0) { Fail 'flutter pub get failed.' }
 
+    $iconPath = Join-Path $FlutterRoot 'assets\images\app_icon.png'
+    $brandIconPatch = Join-Path $ProjectRoot 'tools\release\align_brand_icon.ps1'
+    if (-not (Test-Path $brandIconPatch)) { Fail "Brand icon alignment script not found: $brandIconPatch" }
+    Step 'Aligning launcher icon with the official green brand palette'
+    & $brandIconPatch -ImagePath $iconPath
+    if ($LASTEXITCODE -ne 0) { Fail 'Brand icon alignment failed.' }
+
     Step 'Regenerating official launcher icon'
     dart run flutter_launcher_icons
     if ($LASTEXITCODE -ne 0) { Fail 'flutter_launcher_icons failed.' }
