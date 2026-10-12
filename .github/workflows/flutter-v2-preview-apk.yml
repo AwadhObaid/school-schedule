@@ -28,6 +28,17 @@ jobs:
           channel: stable
           cache: true
 
+      # This Flutter V2 directory was committed without its Android platform
+      # scaffold. Generate only the missing Android host project before building.
+      - name: Generate missing Android platform scaffold
+        run: flutter create --platforms=android --org com.salaheddine --project-name schedule .
+
+      - name: Verify Android application id
+        shell: bash
+        run: |
+          grep -R 'applicationId' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+          grep -R 'namespace' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+
       - name: Resolve packages
         run: flutter pub get
 
@@ -36,6 +47,10 @@ jobs:
 
       - name: Build installable debug APK
         run: flutter build apk --debug
+
+      - name: Verify APK exists
+        shell: bash
+        run: test -s build/app/outputs/flutter-apk/app-debug.apk
 
       - name: Upload APK for phone testing
         uses: actions/upload-artifact@v4
