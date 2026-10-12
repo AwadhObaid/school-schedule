@@ -92,11 +92,14 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         setState(() {});
       }
       await WidgetsBinding.instance.endOfFrame;
-      final bytes = await _buildPdf(context, PdfPageFormat.a4);
-      final images = <Uint8List>[];
-
-      await for (final page in Printing.raster(bytes, dpi: 150)) {
-        images.add(await page.toPng());
+      // Capture each rendered A4 page once. The captured PNGs are used
+      // both by the preview and the PDF, avoiding a second PDF rasterization
+      // pass (which can fail on some Android release runtimes).
+      final result = await _buildPdf(context, PdfPageFormat.a4);
+      final bytes = result.$1;
+      final images = result.$2;
+      if (images.isEmpty) {
+        throw StateError('لم يتم إنشاء أي صفحة للمعاينة.');
       }
 
       if (!mounted) return;
@@ -340,7 +343,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
     );
   }
 
-  Future<Uint8List> _buildPdf(
+  Future<(Uint8List, List<Uint8List>)> _buildPdf(
     BuildContext context,
     PdfPageFormat format,
   ) async {
@@ -348,6 +351,7 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
       version: PdfVersion.pdf_1_5,
       compress: true,
     );
+    final pageImages = <Uint8List>[];
 
     final pageFormat = PdfPageFormat(
       _OfficialPaperGeometry.a4Width,
@@ -392,11 +396,14 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         throw StateError('تعذر تحويل صفحة ' + (index + 1).toString() + ' إلى PNG.');
       }
 
-      final pngBytes = byteData.buffer.asUint8List(
-        byteData.offsetInBytes,
-        byteData.lengthInBytes,
+      final pngBytes = Uint8List.fromList(
+        byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        ),
       );
       image.dispose();
+      pageImages.add(pngBytes);
 
       pdf.addPage(
         pw.Page(
@@ -411,7 +418,8 @@ class _ExamPaperPreviewScreenState extends State<ExamPaperPreviewScreen> {
         ),
       );
     }
-    return pdf.save();
+    final pdfBytes = await pdf.save();
+    return (pdfBytes, pageImages);
   }
 
   static List<List<_PaperQuestionBlock>> _paginate(

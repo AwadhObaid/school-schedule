@@ -1,0 +1,113 @@
+name: Build Exam Preview APK
+
+on:
+  push:
+    branches:
+      - fix/exam-preview-raster-crash
+    paths:
+      - 'flutter_v2/**'
+      - '.github/workflows/flutter-v2-preview-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-preview-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_v2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # This Flutter V2 directory was committed without its Android platform
+      # scaffold. Generate only the missing Android host project before building.
+      - name: Generate missing Android platform scaffold
+        run: flutter create --platforms=android --org com.salaheddine --project-name schedule .
+
+      # flutter create also emits a stock widget_test.dart that targets MyApp;
+      # this app's entry widget is SchoolScheduleApp and has its own smoke tests.
+      - name: Remove generated stale Flutter template test
+        run: rm -f test/widget_test.dart
+
+      - name: Enable Android core library desugaring for notifications
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          gradle = Path("android/app/build.gradle")
+          kts = Path("android/app/build.gradle.kts")
+          path = gradle if gradle.exists() else kts
+          if not path.exists():
+              raise SystemExit("Android app Gradle file was not generated")
+          text = path.read_text()
+          if path.suffix == ".kts":
+              if "isCoreLibraryDesugaringEnabled = true" not in text:
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                      1
+                  )
+              if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:' not in text:
+                  if "dependencies {" not in text:
+                      text += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
+                  else:
+                      text = text.replace(
+                          "dependencies {",
+                          'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                          1
+                      )
+          else:
+              if "coreLibraryDesugaringEnabled true" not in text:
+                  text = text.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
+                      1
+                  )
+              if "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:" not in text and 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:' not in text:
+                  if "dependencies {" not in text:
+                      text += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+                  else:
+                      text = text.replace(
+                          "dependencies {",
+                          "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                          1
+                      )
+          path.write_text(text)
+          print(f"Enabled core library desugaring in {path}")
+          PY
+
+      - name: Verify Android application id
+        shell: bash
+        run: |
+          grep -R 'applicationId' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+          grep -R 'namespace' android/app/build.gradle android/app/build.gradle.kts 2>/dev/null || true
+
+      - name: Resolve packages
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build installable debug APK
+        run: flutter build apk --debug
+
+      - name: Verify APK exists
+        shell: bash
+        run: test -s build/app/outputs/flutter-apk/app-debug.apk
+
+      - name: Upload APK for phone testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: school-schedule-exam-preview-debug-apk
+          path: flutter_v2/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
