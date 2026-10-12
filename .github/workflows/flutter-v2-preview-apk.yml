@@ -53,32 +53,32 @@ jobs:
               if "isCoreLibraryDesugaringEnabled = true" not in text:
                   text = text.replace(
                       "compileOptions {",
-                      "compileOptions {\\n        isCoreLibraryDesugaringEnabled = true",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
                       1
                   )
               if 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:' not in text:
                   if "dependencies {" not in text:
-                      text += "\\ndependencies {\\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\\n}\\n"
+                      text += "\ndependencies {\n    coreLibraryDesugaring(\"com.android.tools:desugar_jdk_libs:2.1.4\")\n}\n"
                   else:
                       text = text.replace(
                           "dependencies {",
-                          'dependencies {\\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
+                          'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")',
                           1
                       )
           else:
               if "coreLibraryDesugaringEnabled true" not in text:
                   text = text.replace(
                       "compileOptions {",
-                      "compileOptions {\\n        coreLibraryDesugaringEnabled true",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
                       1
                   )
               if "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:" not in text and 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:' not in text:
                   if "dependencies {" not in text:
-                      text += "\\ndependencies {\\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\\n}\\n"
+                      text += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
                   else:
                       text = text.replace(
                           "dependencies {",
-                          "dependencies {\\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
+                          "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'",
                           1
                       )
           path.write_text(text)
