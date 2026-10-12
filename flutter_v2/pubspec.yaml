@@ -28,6 +28,11 @@ dependencies:
   url_launcher: ^6.3.2
   webview_flutter: ^4.14.1
 
+# Keep image compatible with archive 4.0.x used by pdf/printing.
+# image 4.11.0 requires newer archive APIs and fails compilation with archive 4.0.9.
+dependency_overrides:
+  image: 4.5.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
