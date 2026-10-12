@@ -33,6 +33,11 @@ jobs:
       - name: Generate missing Android platform scaffold
         run: flutter create --platforms=android --org com.salaheddine --project-name schedule .
 
+      # flutter create also emits a stock widget_test.dart that targets MyApp;
+      # this app's entry widget is SchoolScheduleApp and has its own smoke tests.
+      - name: Remove generated stale Flutter template test
+        run: rm -f test/widget_test.dart
+
       - name: Verify Android application id
         shell: bash
         run: |
